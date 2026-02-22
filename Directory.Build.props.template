@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project>
+  <!--
+    Local build configuration for NOBlueprinter.
+
+    SETUP INSTRUCTIONS:
+    1. Copy this file and rename the copy to "Directory.Build.props" (remove .template)
+    2. Update the paths below to match your local environment
+    3. The Directory.Build.props file is gitignored and won't be committed
+  -->
+
+  <PropertyGroup>
+    <!-- Path to your Nuclear Option game installation -->
+    <!-- Examples:
+         Windows Steam: C:\Program Files (x86)\Steam\steamapps\common\Nuclear Option
+         Custom Steam library: D:\SteamLibrary\steamapps\common\Nuclear Option
+    -->
+    <NuclearOptionDir>C:\Program Files (x86)\Steam\steamapps\common\Nuclear Option</NuclearOptionDir>
+
+    <!-- Path to Unity Editor installation (for Blueprinter.Editor only) -->
+    <!-- Examples:
+         Unity Hub default: C:\Program Files\Unity\Hub\Editor\2022.3.62f2
+         Custom location: D:\Unity\2022.3.62f2
+    -->
+    <UnityEditorDir>C:\Program Files\Unity\Hub\Editor\2022.3.62f2</UnityEditorDir>
+
+    <!-- Where to copy built plugins (BepInEx plugins directory) -->
+    <!-- Default uses the game directory, but you can override if needed -->
+    <BepInExPluginsDir>$(NuclearOptionDir)\BepInEx\plugins\NOBlueprinter</BepInExPluginsDir>
+  </PropertyGroup>
+
+  <!-- Derived paths - generally no need to modify these -->
+  <PropertyGroup>
+    <GameManagedDir>$(NuclearOptionDir)\NuclearOption_Data\Managed</GameManagedDir>
+    <UnityManagedDir>$(UnityEditorDir)\Editor\Data\Managed\UnityEngine</UnityManagedDir>
+  </PropertyGroup>
+
+</Project>

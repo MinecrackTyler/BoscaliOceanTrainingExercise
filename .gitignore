@@ -1,0 +1,23 @@
+# ===== Build output =====
+bin/
+obj/
+
+# ===== Rider / JetBrains =====
+.idea/
+*.sln.iml
+*.DotSettings.user
+*.DotSettings.user.*
+
+# ===== Local game / SDK references =====
+libs/
+
+# ===== Generated / scratch =====
+structure_exports/
+Garbage/
+
+# ===== OS junk =====
+.DS_Store
+Thumbs.db
+
+# this thing
+Directory.Build.props
