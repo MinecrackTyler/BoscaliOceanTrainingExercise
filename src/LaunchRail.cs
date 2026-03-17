@@ -1,29 +1,63 @@
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using Mirage;
 using UnityEngine;
 
 namespace BPCustomComponents;
 
-public class LaunchRail : MonoBehaviour
+public class LaunchRail : NetworkBehaviour
 {
 	[SerializeField] private Transform attachPoint;
 	[SerializeField] private float railLength = 20f;
 	[SerializeField] private float releaseDistance = 1f;
+	[SerializeField] private bool isCatapult;
+	[SerializeField] private AnimationCurve accelCurve;
+	[SerializeField] private float maxVelocity;
 	[SerializeField] private Rigidbody rb;
+	[SerializeField] private float maxForce = float.MaxValue;
+
+	public bool IsReady => setupComplete;
+	public bool IsOccupied => ac != null;
+	public event Action onRelease;
 
 	private bool isLaunched;
+	private bool isReleased;
 	private bool setupComplete;
     private Aircraft ac;
     private ConfigurableJoint launchJoint;
     private FixedJoint holdbackJoint;
     private Transform acHook;
     private Vector3 startPos;
+    private float distance;
+    private float progress;
+    
 
-    public void AttachAircraft(Aircraft ac, Transform acHook)
+    public bool AttachAircraft(Aircraft ac, Transform acHook)
     {
+	    if (IsOccupied) return false;
+	    Reset();
         this.ac = ac;
         this.acHook = acHook;
-        
+        SetTangible(false);
+        ac.SetSimplePhysics();
         TeleportToRail();
-        SetupJoint();
+        StartCoroutine(SetupJoint());
+        return true;
+    }
+
+    private void Reset()
+    {
+	    distance = 0f;
+	    progress = 0f;
+	    isReleased = false;
+	    isLaunched = false;
+	    setupComplete = false;
+	    ac = null;
+	    launchJoint = null;
+	    holdbackJoint = null;
+	    acHook = null;
+	    startPos = new Vector3();
     }
     
     private void TeleportToRail()
@@ -44,17 +78,19 @@ public class LaunchRail : MonoBehaviour
         Physics.SyncTransforms();
     }
 
-    private void SetupJoint()
+    private IEnumerator SetupJoint()
     {
-	    if (ac == null || ac.rb == null) return;
+	    if (ac == null || ac.rb == null) yield break;
 	    ac.rb.isKinematic = true;
+
+	    yield return new WaitForFixedUpdate();
 
 	    launchJoint = ac.gameObject.AddComponent<ConfigurableJoint>();
 	    launchJoint.connectedBody = rb;
 	    launchJoint.autoConfigureConnectedAnchor = false;
         
-	    Vector3 railForward = transform.forward;
-	    Vector3 railUp = transform.up;
+	    Vector3 railForward = attachPoint.forward;
+	    Vector3 railUp = attachPoint.up;
         
 	    launchJoint.axis = ac.transform.InverseTransformDirection(railForward);
 	    launchJoint.secondaryAxis = ac.transform.InverseTransformDirection(railUp);
@@ -70,13 +106,8 @@ public class LaunchRail : MonoBehaviour
 	    launchJoint.anchor =
 		    ac.transform.InverseTransformPoint(acHook.position);
         
-	    Vector3 railLocalAttach =
-		    transform.InverseTransformPoint(
-			    attachPoint.position);
-
-	    Vector3 railLocalForward =
-		    transform.InverseTransformDirection(
-			    railForward);
+	    Vector3 railLocalAttach = rb.transform.InverseTransformPoint(attachPoint.position);
+	    Vector3 railLocalForward = rb.transform.InverseTransformDirection(railForward);
 
 	    launchJoint.connectedAnchor =
 		    railLocalAttach + railLocalForward * (railLength / 2f);
@@ -88,8 +119,11 @@ public class LaunchRail : MonoBehaviour
 	    };
 
 	    startPos = transform.InverseTransformPoint(acHook.position);
-        
+
+	    yield return new WaitForFixedUpdate();
+	    
 	    ac.rb.isKinematic = false;
+	    SetTangible(true);
 	    ac.SetComplexPhysics();
 
 	    holdbackJoint = ac.gameObject.AddComponent<FixedJoint>();
@@ -99,34 +133,89 @@ public class LaunchRail : MonoBehaviour
 
     public void Launch()
     {
+	    if (isLaunched) return;
+	    if (!IsReady) return;
 	    isLaunched = true;
 	    Destroy(holdbackJoint);
-    }
-    
-    private void Update()
-    {
-	    if (!ac.LocalSim) return;
-	    if (!setupComplete) return;
-
-	    if (isLaunched)
+	    if (isCatapult)
 	    {
-		    CheckForRelease();
+		    StartCoroutine(LaunchRoutine());
 	    }
     }
-    
-    private void CheckForRelease()
+
+    public void Release()
     {
-	    if (launchJoint == null || ac == null) return;
-        
-	    Vector3 railForward = attachPoint.forward;
-	    Vector3 railStartWorldPos = transform.TransformPoint(startPos);
-	    Vector3 offsetFromStart = acHook.position - railStartWorldPos;
-	    float distanceTraveled = Vector3.Dot(offsetFromStart, railForward);
-        
-	    if (distanceTraveled >= railLength - releaseDistance)
+	    if (isReleased) return;
+	    isReleased = true;
+	    onRelease?.Invoke();
+	    if (launchJoint != null) Destroy(launchJoint);
+	    if (holdbackJoint != null) Destroy(holdbackJoint);
+	    ac = null;
+	    distance = 0f;
+
+    }
+
+    private IEnumerator LaunchRoutine()
+    {
+	    if (isCatapult)
 	    {
-		    Destroy(launchJoint);
-		    if (holdbackJoint != null) Destroy(holdbackJoint);
+		    JointDrive drive = new JointDrive()
+		    {
+			    positionSpring = 0f,
+			    positionDamper = maxForce,
+			    maximumForce = 500000000f
+		    };
+		    launchJoint.xDrive = drive;
+	    }
+
+	    Vector3 railStartWorld = transform.TransformPoint(startPos);
+	    Vector3 railForward = attachPoint.forward;
+	    
+	    accelCurve.postWrapMode = WrapMode.Clamp;
+	    accelCurve.preWrapMode = WrapMode.Clamp;
+	    
+	    while (!isReleased)
+	    {
+		    Vector3 offset = acHook.position - railStartWorld;
+			distance = Vector3.Dot(offset, railForward);
+
+		    progress = Mathf.Clamp01(distance / railLength);
+
+		    float targetVel = accelCurve.Evaluate(progress);
+		    
+		    launchJoint?.targetVelocity = new Vector3(-targetVel, 0f, 0f);
+		    Debug.Log(progress);
+		    
+		    yield return new WaitForFixedUpdate();
+	    }
+    }
+
+    private void SetTangible(bool tangible)
+    {
+	    foreach (var collider in GetComponentsInChildren<Collider>())
+	    {
+		    collider.enabled = tangible;
+	    }
+	    rb.isKinematic = !tangible;
+	    IgnoreRailCollisions(!tangible);
+    }
+    
+    private void IgnoreRailCollisions(bool ignored)
+    {
+	    Collider[] aCols = ac.GetComponentsInChildren<Collider>();
+	    Collider[] rCols = GetComponentsInChildren<Collider>();
+
+	    foreach (var a in aCols)
+		    foreach (var r in rCols)
+			    Physics.IgnoreCollision(a, r, ignored);
+    }
+
+    private void FixedUpdate()
+    {
+	    if (ac == null || isReleased) return;
+	    if (distance >= railLength - releaseDistance)
+	    {
+		    Release();
 	    }
     }
 }

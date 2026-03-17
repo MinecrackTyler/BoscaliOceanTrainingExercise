@@ -218,3 +218,18 @@ public class Hangar_SpawnAircraft
 		return false;
 	}
 }
+
+[HarmonyPatch(typeof(Hardpoint), "SpawnMount")]
+public class Hardpoint_SpawnMount
+{
+	[HarmonyPostfix]
+	private static void Postfix(Hardpoint __instance, Aircraft aircraft, WeaponMount weaponMount, GameObject __result)
+	{
+		if (!weaponMount.turret) return;
+		var turrets = __result.GetComponentsInChildren<Turret>().Skip(1);
+		foreach (var turret in turrets)
+		{
+			turret.AttachToWeaponManager(aircraft);
+		}
+	}
+}

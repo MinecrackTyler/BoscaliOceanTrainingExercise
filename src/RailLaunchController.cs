@@ -6,7 +6,7 @@ using UnityEngine;
 
 namespace BPCustomComponents;
 
-public class RailLaunchController : MonoBehaviour
+public class RailLaunchController : NetworkBehaviour
 {
     [SerializeField] private Aircraft aircraft;
     [SerializeField] private GameObject railPrefab;
@@ -15,18 +15,11 @@ public class RailLaunchController : MonoBehaviour
     [SerializeField] private Transform[] boosterAttachPoints;
 
     [SerializeField] private float launchRPMThreshold;
-    [SerializeField] private float railLength;
-    [SerializeField] private float releaseThresholdBuffer;
-
-    private FixedJoint holdBackJoint;
-    private Vector3 startLocalPos;
-    private ConfigurableJoint launchJoint;
-    private bool isLaunched;
-    private Rigidbody rb;
-    private GameObject railInstance;
-    private RailLauncher railLauncher;
+    
+    [SyncVar] private GameObject railInstance;
+    private LaunchRail launchRail;
     private List<RailBooster> railBoosters = new List<RailBooster>();
-    private bool setupComplete;
+    private bool isLaunched;
 
     private void Awake()
     {
@@ -44,16 +37,15 @@ public class RailLaunchController : MonoBehaviour
 
     private void OnAircraftInitialize()
     {
-        aircraft.SetSimplePhysics();
-
         if (aircraft.IsServer)
         {
             SpawnRail();
-            TeleportToRail();
         }
 
         if (aircraft.LocalSim)
-            StartCoroutine(SetupJoint());
+        {
+            StartCoroutine(WaitAndAttach());
+        }
         
         SpawnBoosters();
     }
@@ -62,10 +54,12 @@ public class RailLaunchController : MonoBehaviour
     {
         foreach (var point in boosterAttachPoints)
         {
-            var booster = Instantiate(boosterPrefab, point.position, point.rotation);
-            RailBooster railBooster = booster.GetComponent<RailBooster>();
-            railBooster.Initialize(aircraft);
-            railBoosters.Add(railBooster);
+            var boosterObj = Instantiate(boosterPrefab, point.position, point.rotation);
+            RailBooster boosterLogic = boosterObj.GetComponent<RailBooster>();
+            
+            // This handles parenting and passing the aircraft reference
+            boosterLogic.Initialize(aircraft);
+            railBoosters.Add(boosterLogic);
         }
     }
 
@@ -73,167 +67,64 @@ public class RailLaunchController : MonoBehaviour
     {
         railInstance = NetworkManagerNuclearOption.i.ServerObjectManager
             .SpawnInstantiate(railPrefab, railPrefab.GetNetworkIdentity().PrefabHash, aircraft.Owner);
-
-        railLauncher = railInstance.GetComponent<RailLauncher>();
-
+        
+        // Match the initial spawn position/rotation to the aircraft
         railInstance.transform.SetPositionAndRotation(transform.position, transform.rotation);
     }
 
-    private void TeleportToRail()
+    private IEnumerator WaitAndAttach()
     {
-        rb = aircraft.rb;
-        rb.isKinematic = true;
-
-        // Save hook local offset BEFORE rotation
-        Vector3 localHookOffset = railAttachPoint.localPosition;
-
-        Quaternion targetRot = railLauncher.attachPoint.rotation;
-
-        // Rotate the local offset into world space
-        Vector3 rotatedOffset = targetRot * localHookOffset;
-
-        // Set final position so hook aligns
-        Vector3 targetPos = railLauncher.attachPoint.position - rotatedOffset;
-
-        rb.position = targetPos;
-        rb.rotation = targetRot;
-
-        Physics.SyncTransforms();
-    }
-
-    private IEnumerator SetupJoint()
-    {
+        // Wait for Mirage to sync the railInstance to the client
         while (railInstance == null)
             yield return null;
 
-        yield return new WaitForSeconds(0.05f);
-
-        railLauncher = railInstance.GetComponent<RailLauncher>();
-        rb = aircraft.rb;
-        rb.isKinematic = true;
-
-        IgnoreRailCollisions();
-
-        Rigidbody railRb = railInstance.GetComponentInChildren<Rigidbody>();
-
-        launchJoint = gameObject.AddComponent<ConfigurableJoint>();
-        launchJoint.connectedBody = railRb;
-        launchJoint.autoConfigureConnectedAnchor = false;
-
-        // ---- AXIS SETUP (in aircraft local space) ----
-        Vector3 railForwardWorld = railLauncher.attachPoint.forward;
-        Vector3 railUpWorld = railLauncher.attachPoint.up;
-
-        launchJoint.axis =
-            transform.InverseTransformDirection(railForwardWorld);
-
-        launchJoint.secondaryAxis =
-            transform.InverseTransformDirection(railUpWorld);
-
-        // ---- MOTION ----
-        launchJoint.xMotion = ConfigurableJointMotion.Limited;
-        launchJoint.yMotion = ConfigurableJointMotion.Locked;
-        launchJoint.zMotion = ConfigurableJointMotion.Locked;
-
-        launchJoint.angularXMotion = ConfigurableJointMotion.Locked;
-        launchJoint.angularYMotion = ConfigurableJointMotion.Locked;
-        launchJoint.angularZMotion = ConfigurableJointMotion.Locked;
-
-        // ---- AIRCRAFT ANCHOR (NO OFFSET) ----
-        launchJoint.anchor =
-            transform.InverseTransformPoint(railAttachPoint.position);
-
-        // ---- RAIL ANCHOR (OFFSET BACK HALF RAIL LENGTH) ----
-        Vector3 railLocalAttach =
-            railInstance.transform.InverseTransformPoint(
-                railLauncher.attachPoint.position);
-
-        Vector3 railLocalForward =
-            railInstance.transform.InverseTransformDirection(
-                railForwardWorld);
-
-        launchJoint.connectedAnchor =
-            railLocalAttach + railLocalForward * (railLength / 2f);
-
-        // ---- LIMIT ----
-        launchJoint.linearLimit = new SoftJointLimit
+        launchRail = railInstance.GetComponent<LaunchRail>();
+        
+        if (launchRail == null)
         {
-            limit = railLength / 2f,
-            bounciness = 0f
-        };
+            Debug.LogError("RailLaunchController: Spawned prefab is missing LaunchRail component!");
+            yield break;
+        }
 
-        startLocalPos =
-            railInstance.transform.InverseTransformPoint(
-                railAttachPoint.position);
-
-        railLauncher.SetTangible(true);
-
-        yield return new WaitForFixedUpdate();
-
-        rb.isKinematic = false;
-        aircraft.SetComplexPhysics();
-
-        holdBackJoint = gameObject.AddComponent<FixedJoint>();
-        holdBackJoint.connectedBody = railRb;
-
-        setupComplete = true;
-    }
-
-    private void IgnoreRailCollisions()
-    {
-        Collider[] aCols = GetComponentsInChildren<Collider>();
-        Collider[] rCols = railInstance.GetComponentsInChildren<Collider>();
-
-        foreach (var a in aCols)
-            foreach (var r in rCols)
-                Physics.IgnoreCollision(a, r);
+        // The LaunchRail now handles TeleportToRail and SetupJoint internally
+        launchRail.AttachAircraft(aircraft, railAttachPoint);
     }
 
     private void Update()
     {
         if (!aircraft.LocalSim) return;
-        if (!setupComplete) return;
+        if (launchRail == null || !launchRail.IsReady) return;
 
         if (!isLaunched)
         {
-            if (aircraft.GetInputs().throttle >= 0.95f &&
-                GetRPMRatio() > launchRPMThreshold)
+            // Check for launch conditions (Throttle + Engine RPM)
+            if (aircraft.GetInputs().throttle >= 0.95f && GetRPMRatio() > launchRPMThreshold)
             {
-                isLaunched = true;
-                Destroy(holdBackJoint);
-                foreach (var booster in railBoosters)
-                {
-                    booster.Ignite();
-                }
+                Launch();
             }
-               
-        }
-        else
-        {
-            CheckForRelease();
         }
     }
 
-    private void CheckForRelease()
+    private void Launch()
     {
-        if (launchJoint == null || railLauncher == null) return;
+        isLaunched = true;
         
-        Vector3 railForward = railLauncher.attachPoint.forward;
-        Vector3 railStartWorldPos = railInstance.transform.TransformPoint(startLocalPos);
-        Vector3 offsetFromStart = railAttachPoint.position - railStartWorldPos;
-        float distanceTraveled = Vector3.Dot(offsetFromStart, railForward);
+        // Trigger the rail physics (Catapult and Joint release)
+        launchRail.Launch();
         
-        if (distanceTraveled >= railLength - releaseThresholdBuffer)
+        // Ignite all attached boosters
+        foreach (var booster in railBoosters)
         {
-            Destroy(launchJoint);
-            if (holdBackJoint != null) Destroy(holdBackJoint);
+            booster.Ignite();
         }
+
+        Debug.Log($"{aircraft.name} initiated rail launch.");
     }
-
-
 
     private float GetRPMRatio()
     {
+        if (aircraft.engines == null || aircraft.engines.Count == 0) return 0f;
+
         float total = 0f;
         foreach (var engine in aircraft.engines)
             total += engine.GetRPMRatio();
