@@ -24,7 +24,7 @@ public static class WeaponStationMLPatch
 		if (___weaponIndex >= __instance.Weapons.Count)
 		{
 			var lastWeapon = __instance.Weapons[__instance.Weapons.Count - 1];
-			if (lastWeapon is MissileLauncher or Deployer)
+			if (lastWeapon is MissileLauncher or Deployer or NetworkMissileLauncher)
 			{
 				___weaponIndex = 0;
 			}
@@ -47,9 +47,9 @@ public static class WeaponStationMLPatch
 	
 	private static bool IsWeaponEmpty(object weapon)
 	{
-		if (weapon is MissileLauncher ml)
+		if (weapon is NetworkMissileLauncher nml)
 		{
-			return ml.GetAmmoTotal() <= 0; 
+			return nml.GetAmmoTotal() <= 0; 
 		}
 		if (weapon is Deployer d)
 		{
@@ -117,7 +117,7 @@ public static class WeaponStationPatch
 		
 		if (__instance.Cargo)
 		{
-			var cargoDoor = aircraft.GetComponentInChildren<CargoDoor>();
+			var cargoDoor = aircraft.GetComponentInChildren<CargoDoorController>();
             
 			if (cargoDoor != null)
 			{
@@ -197,11 +197,21 @@ public class Patch_AeroPart_ApplyJobFields
 [HarmonyPatch(typeof(Hangar), "SpawnAircraft")]
 public class Hangar_SpawnAircraft
 {
-	private static List<string> allowedList = ["Destroyer1_Player", "LandingKraft"];
+	private static List<string> allowedList = ["Destroyer1_Player", "LandingKraft", "Korvette1"];
+	private static List<AircraftDefinition> processedAircraft = new List<AircraftDefinition>();
 	
 	[HarmonyPrefix]
 	private static bool Prefix(Hangar __instance, Player player, AircraftDefinition definition, Loadout loadout, float fuelLevel, LiveryKey livery)
 	{
+		if (!processedAircraft.Contains(definition) && ModAssets.i.aircraftKeys.IndexOf(definition.jsonKey) >= 0)
+		{
+			definition.unitPrefab.AddComponent<RailHangarController>();
+			var go = new GameObject("RailAttachPoint");
+			go.transform.SetParent(definition.unitPrefab.transform);
+			go.transform.localPosition = ModAssets.i.aircraftEntries[ModAssets.i.aircraftKeys.IndexOf(definition.jsonKey)].railAttachPoint;
+			processedAircraft.Add(definition);
+		}
+		
 		if (!allowedList.Contains(definition.jsonKey)) return true;
 		var hgr = __instance;
 
@@ -217,6 +227,68 @@ public class Hangar_SpawnAircraft
 		hgr.spawnedObject = aircraft.gameObject;
 		return false;
 	}
+
+	
+}
+
+[HarmonyPatch(typeof(Spawner), "SpawnAircraft")]
+public class Spawner_SpawnAircraft
+{
+    [HarmonyPrefix]
+    public static bool Prefix(
+        Spawner __instance, 
+        ref Aircraft __result,
+        Player player, 
+        GameObject prefab, 
+        Loadout loadout, 
+        float fuelLevel, 
+        LiveryKey livery, 
+        GlobalPosition globalPosition, 
+        Quaternion rotation, 
+        Vector3 startingVel, 
+        Hangar spawningHangar, 
+        FactionHQ HQ, 
+        string uniqueName, 
+        float skill, 
+        float bravery)
+    {
+        PlayerRef networkplayerRef = ((player != null) ? player.PlayerRef : PlayerRef.Invalid);
+        Vector3 position = globalPosition.ToLocalPosition();
+        GameObject gameObject = Object.Instantiate(prefab, position, rotation);
+        
+        Aircraft component = gameObject.GetComponent<Aircraft>();
+        component.NetworkHQ = HQ;
+        component.NetworkUniqueName = uniqueName;
+        component.NetworkspawningHangar = spawningHangar;
+        component.NetworkstartPosition = globalPosition;
+        component.NetworkstartRotation = rotation;
+        component.NetworkstartingVelocity = startingVel;
+        component.Networkloadout = loadout;
+        component.NetworkfuelLevel = Mathf.Clamp(fuelLevel, 0f, 1f);
+        component.skill = skill;
+        component.bravery = bravery;
+        component.SetLiveryKey(livery);
+        component.NetworkplayerRef = networkplayerRef;
+        component.NetworkunitName = ((player != null) ? (player.GetNameOrCensored() + " [" + component.definition.unitName + "]") : component.definition.unitName);
+		
+        if (component.TryGetComponent<Airbase>(out var airbase))
+        {
+            airbase.SetupAttachedAirbase(component);
+            airbase.SavedAirbase.UniqueName = airbase.SavedAirbase.UniqueName + $"{player?.GetNameOrCensored()}_{Time.time}";
+        }
+        
+        if (player != null)
+        {
+            __instance.ServerObjectManager.Spawn(gameObject, player.Owner);
+        }
+        else
+        {
+            __instance.ServerObjectManager.Spawn(gameObject);
+        }
+        
+        __result = component;
+        return false; 
+    }
 }
 
 [HarmonyPatch(typeof(Hardpoint), "SpawnMount")]
@@ -233,3 +305,103 @@ public class Hardpoint_SpawnMount
 		}
 	}
 }
+
+[HarmonyPatch(typeof(Hangar), "TrySpawnAircraft")]
+public static class Hangar_TrySpawnAircraft
+{
+    [HarmonyPrefix]
+    public static bool Prefix(
+        Hangar __instance, 
+        ref Airbase.TrySpawnResult __result,
+        Player player, 
+        AircraftDefinition definition, 
+        LiveryKey livery, 
+        Loadout loadout, 
+        float fuelLevel)
+    {
+	    if (__instance is not RailHangar railHangar) return true;
+	    if (!railHangar.IsServer)
+        {
+	        throw new MethodInvocationException("[Server] function 'TrySpawnAircraft' called when server not active");
+        }
+        if (!railHangar.CanSpawnAircraft(definition))
+        {
+	        __result = default(Airbase.TrySpawnResult);
+	        return false;
+        }
+        if (railHangar.waitForOpenBeforeSpawn)
+        {
+	        Hangar.QueuedAircraftToSpawn spawnAircraft = new Hangar.QueuedAircraftToSpawn(player, definition, livery, loadout, fuelLevel);
+                
+	        railHangar.DoorSequenceRailLauncher(spawnAircraft).Forget();
+        }
+        else
+        {
+	        railHangar.SpawnAircraft(player, definition, loadout, fuelLevel, livery);
+	        railHangar.DoorSequenceNormal().Forget();
+        }
+        if (player != null)
+        {
+	        player.FlyOwnedAirframe(definition);
+        }
+        else
+        {
+	        railHangar.attachedUnit.NetworkHQ.AddSupplyUnit(definition, -1);
+        }
+        __result = new Airbase.TrySpawnResult(true, railHangar, railHangar.waitForOpenBeforeSpawn);
+        return false;
+    }
+}
+
+[HarmonyPatch(typeof(UnitPart), nameof(UnitPart.Awake))]
+public static class UnitPart_Awake
+{
+	[HarmonyPrefix]
+	private static void Prefix(UnitPart __instance)
+	{
+		if (__instance.parentUnit == null && __instance.transform.parent != null)
+		{
+			__instance.parentUnit = __instance.transform.parent.GetComponentInParentWithDepth<UnitPart>(6).parentUnit;
+		}
+	}
+}
+
+
+public static class TransformExtensions
+{
+	public static T GetComponentInParentWithDepth<T>(this Transform startTransform, int maxDepth) where T : Component
+	{
+		Transform currentTransform = startTransform;
+		int depth = 0;
+		
+		while (currentTransform != null && depth <= maxDepth)
+		{
+			T component = currentTransform.GetComponent<T>();
+			if (component != null)
+			{
+				return component;
+			}
+			
+			currentTransform = currentTransform.parent;
+			depth++;
+		}
+
+		return null;
+	}
+}
+/*[HarmonyPatch(typeof(Airbase), "OnStartServer")]
+internal static class Airbase_SetupAttachedAirbase_Patch
+{
+	private static int fobIndex = 1;
+	private const string KARPREFIX = "bote_";
+
+	private static void Prefix(Airbase __instance)
+	{
+		if (__instance.SavedAirbase.UniqueName.StartsWith(KARPREFIX))
+		{
+			//Plugin.Logger.LogWarning($"NEW AIRBASE HASHED {__instance.SavedAirbase.UniqueName += fobIndex.ToString()}");
+			__instance.SavedAirbase.DisplayName += $" {fobIndex}";
+			fobIndex++;
+		}
+	}
+}*/

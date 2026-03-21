@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace BPCustomComponents;
+namespace NOComponentWIP;
 
 public class CatapultHook : MonoBehaviour
 {

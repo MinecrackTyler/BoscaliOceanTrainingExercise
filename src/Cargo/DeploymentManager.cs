@@ -28,9 +28,7 @@ public class DeploymentManager : NetworkBehaviour
     [SyncVar] private int selectedIndex = 0;
     
     public bool buildingFob;
-
-    [SerializeField] private GameObject uiPrefab;
-    [SerializeField] private GameObject fobUIPrefab;
+    
     [SerializeField] private Aircraft aircraft;
 
     public int MaxPoints => maxPoints;
@@ -74,7 +72,7 @@ public class DeploymentManager : NetworkBehaviour
         var canvas = GameplayUI.i.gameplayCanvas;
         if (canvas == null) yield break;
         
-        var uiInstance = Instantiate(uiPrefab, canvas.transform);
+        var uiInstance = Instantiate(ModAssets.i.CargoEditorUI, canvas.transform);
         var controller = uiInstance.GetComponent<CargoUIController>();
         controller.Initialize(this);
         CursorManager.SetFlag(CursorFlags.Map, value: true);
@@ -83,7 +81,7 @@ public class DeploymentManager : NetworkBehaviour
         GameManager.flightControlsEnabled = false;
         aircraft.onDisableUnit += Disable;
         yield return new WaitUntil(() => LoadoutBridge.LoadoutSet);
-        
+        if (controller != null) controller.Close();
         CursorManager.SetFlag(CursorFlags.Map, value: false);
         CmdSetManifest(LoadoutBridge.SelectedUnitIDs.ToArray(), LoadoutBridge.FobMode);
         Disable(aircraft);
@@ -92,6 +90,15 @@ public class DeploymentManager : NetworkBehaviour
 
     private void Disable(Unit unit)
     {
+        DynamicMap.AllowedToOpen = true;
+        LoadoutBridge.Clear();
+        LoadoutBridge.BlockInputs = false;
+        GameManager.flightControlsEnabled = true;
+    }
+
+    private void OnDestroy()
+    {
+        if (!aircraft.LocalSim) return;
         DynamicMap.AllowedToOpen = true;
         LoadoutBridge.Clear();
         LoadoutBridge.BlockInputs = false;
@@ -214,7 +221,7 @@ public class DeploymentManager : NetworkBehaviour
         LoadoutBridge.BlockInputs = true;
         aircraft.onDisableUnit += Disable;
         
-        var fobUI = Instantiate(fobUIPrefab, canvas.transform);
+        var fobUI = Instantiate(ModAssets.i.FOBEditorUI, canvas.transform);
         var manager = fobUI.GetComponent<FOBUIController>();
         manager.Initialize(this, aircraft, aircraft.rb.position, availableFOBUnits,160);
         buildingFob = this;

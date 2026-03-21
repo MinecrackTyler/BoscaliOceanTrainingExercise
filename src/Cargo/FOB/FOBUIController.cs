@@ -18,7 +18,6 @@ public class FOBUIController : MonoBehaviour
 	[SerializeField] private Image pointsFillBar;
 
 	[SerializeField] private Transform scrollArea;
-	[SerializeField] private GameObject rowPrefab;
 	
 	[SerializeField] private LayerMask terrainLayer = 1 << 6;
 	
@@ -65,7 +64,7 @@ public class FOBUIController : MonoBehaviour
 
 		foreach (var unit in units)
 		{
-			var row = Instantiate(rowPrefab, scrollArea);
+			var row = Instantiate(ModAssets.i.FOBEditorRow, scrollArea);
 			row.GetComponent<FOBAssetRow>().Setup(unit, this);
 		}
 		RefreshBudget();

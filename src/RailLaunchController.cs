@@ -4,7 +4,7 @@ using Mirage;
 using NuclearOption.Networking;
 using UnityEngine;
 
-namespace BPCustomComponents;
+namespace NOComponentWIP;
 
 public class RailLaunchController : NetworkBehaviour
 {

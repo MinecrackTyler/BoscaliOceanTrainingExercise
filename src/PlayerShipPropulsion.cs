@@ -119,12 +119,12 @@ public class PlayerShipPropulsion : MonoBehaviour, IEngine
 
     public float GetRPM()
     {
-        return 0f;
+        return 100f;
     }
 
     public float GetRPMRatio()
     {
-        return 0f;
+        return 1f;
     }
 
     public void SetInteriorSounds(bool useInteriorSound)

@@ -5,7 +5,7 @@ namespace NOComponentWIP;
 
 public class AirbaseAIFilter : MonoBehaviour
 {
-	private List<string> allowedAircraftKeys = new List<string>();
+	[SerializeField] private List<string> allowedAircraftKeys = new List<string>();
 
 	public bool CanSpawnAircraft(string jsonKey)
 	{

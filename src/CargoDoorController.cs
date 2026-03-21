@@ -5,11 +5,11 @@ using Rewired;
 
 namespace NOComponentWIP
 {
-    public class CargoDoor : MonoBehaviour
+    public class CargoDoorController : MonoBehaviour
     {
         [Header("References")]
         [SerializeField] private Aircraft aircraft;
-        [SerializeField] private List<BayDoor> doors;
+        [SerializeField] private List<CargoDoor> doors;
         [SerializeField] private AirCushion cushion;
         [SerializeField] private int[] cargoSlots;
         
@@ -145,7 +145,7 @@ namespace NOComponentWIP
     }
     
     [RequireComponent(typeof(AudioSource))]
-    public class BayDoor : MonoBehaviour
+    public class CargoDoor : MonoBehaviour
     {
         public Transform doorTransform;
         public Vector3 closedAngle;

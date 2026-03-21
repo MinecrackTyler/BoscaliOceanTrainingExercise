@@ -13,7 +13,6 @@ public class CargoUIController : MonoBehaviour
 
     [Header("List Area")]
     [SerializeField] private Transform scrollContent;
-    [SerializeField] private GameObject rowPrefab;
     
     [Header("Buttons")]
     [SerializeField] private Button applyButton;
@@ -46,7 +45,7 @@ public class CargoUIController : MonoBehaviour
         for (int i = 0; i < _manager.availableUnits.Count; i++)
         {
             var unit = _manager.availableUnits[i];
-            var rowObj = Instantiate(this.rowPrefab, scrollContent);
+            var rowObj = Instantiate(ModAssets.i.CargoEditorRow, scrollContent);
             
             var rowController = rowObj.GetComponent<UnitRowController>();
             

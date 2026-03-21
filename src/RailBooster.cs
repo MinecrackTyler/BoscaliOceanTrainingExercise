@@ -1,4 +1,4 @@
-namespace BPCustomComponents;
+namespace NOComponentWIP;
 using UnityEngine;
 
 public class RailBooster : MonoBehaviour

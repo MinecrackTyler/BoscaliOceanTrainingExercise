@@ -4,9 +4,9 @@ using System.Collections.Generic;
 using Mirage;
 using UnityEngine;
 
-namespace BPCustomComponents;
+namespace NOComponentWIP;
 
-public class LaunchRail : NetworkBehaviour
+public class LaunchRail : MonoBehaviour
 {
 	[SerializeField] private Transform attachPoint;
 	[SerializeField] private float railLength = 20f;
@@ -14,7 +14,7 @@ public class LaunchRail : NetworkBehaviour
 	[SerializeField] private bool isCatapult;
 	[SerializeField] private AnimationCurve accelCurve;
 	[SerializeField] private float maxVelocity;
-	[SerializeField] private Rigidbody rb;
+	public Rigidbody rb;
 	[SerializeField] private float maxForce = float.MaxValue;
 
 	public bool IsReady => setupComplete;

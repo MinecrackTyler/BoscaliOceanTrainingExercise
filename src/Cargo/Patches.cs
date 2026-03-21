@@ -14,7 +14,6 @@ namespace NOComponentWIP;
 public static class AircraftSelectionMenuPatch
 {
 	private static GameObject uiInstance;
-	private static GameObject uiPrefab;
 	
 	private static Transform newButton;
 	
@@ -22,17 +21,6 @@ public static class AircraftSelectionMenuPatch
 	[HarmonyPrefix]
 	static void Prefix(AircraftSelectionMenu __instance)
 	{
-		if (uiPrefab == null)
-		{
-			uiPrefab = Resources.FindObjectsOfTypeAll<GameObject>().First(o => o.name == "CargoSelectionUI");
-		}
-
-		if (uiPrefab == null)
-		{
-			Debug.LogError("[BOAT] Assets not found, aborting...");
-			return;
-		}
-		
 		var infoPanel = __instance.transform.Find("LowRow")?.Find("RightPanel")?.Find("InfoPanel");
 		if (infoPanel == null) return;
 		var container = infoPanel.Find("Container");
@@ -68,12 +56,6 @@ public static class AircraftSelectionMenuPatch
 	[HarmonyPostfix]
 	static void Postfix(AircraftSelectionMenu __instance)
 	{
-		if (uiPrefab == null)
-		{
-			Debug.LogError("[BOAT] AssetRegistry not found, aborting...");
-			return;
-		}
-		
 		if (nameList.Contains(__instance?.previewAircraft?.definition?.jsonKey))
 		{
 			newButton?.gameObject.SetActive(true);
@@ -88,12 +70,6 @@ public static class AircraftSelectionMenuPatch
 
 	private static void SpawnUI(AircraftSelectionMenu menu)
 	{
-		if (uiPrefab == null)
-		{
-			Debug.LogError("[BOAT] AssetRegistry not found, aborting...");
-			return;
-		}
-		
 		if (uiInstance != null) return;
 		
 		Canvas rootCanvas = menu.GetComponentInParent<Canvas>();
@@ -103,7 +79,7 @@ public static class AircraftSelectionMenuPatch
 			return;
 		}
 		
-		uiInstance = Object.Instantiate(uiPrefab, rootCanvas.transform);
+		uiInstance = Object.Instantiate(ModAssets.i.CargoEditorUI, rootCanvas.transform);
 		uiInstance.transform.SetAsLastSibling();
 		
 		var controller = uiInstance.GetComponent<CargoUIController>();
