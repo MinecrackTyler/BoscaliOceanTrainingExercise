@@ -359,6 +359,7 @@ public static class UnitPart_Awake
 	[HarmonyPrefix]
 	private static void Prefix(UnitPart __instance)
 	{
+		if (__instance is AeroPart part && part.joints.Length > 0) return;
 		if (__instance.parentUnit == null && __instance.transform.parent != null)
 		{
 			__instance.parentUnit = __instance.transform.parent.GetComponentInParentWithDepth<UnitPart>(6).parentUnit;
@@ -405,3 +406,44 @@ internal static class Airbase_SetupAttachedAirbase_Patch
 		}
 	}
 }*/
+
+[HarmonyPatch(typeof(PilotPlayerState), "PlayerControls")]
+public static class PlayerControlsPatch
+{
+	[HarmonyPostfix]
+	private static void Postfix(PilotPlayerState __instance)
+	{
+		if (!GameManager.flightControlsEnabled || (double)__instance.pilotStrength < 0.2)
+		{
+			return;
+		}
+		
+		if (__instance.player.GetButton("Countermeasures"))
+		{
+			if (!__instance.pilot.aircraft.countermeasureTrigger)
+			{
+				__instance.pilot.aircraft.Countermeasures(true, __instance.pilot.aircraft.countermeasureManager.activeIndex);
+			}
+		}
+	}
+}
+
+[HarmonyPatch(typeof(Turret), nameof(Turret.AimTurret), typeof(Vector3))]
+public static class TurretPatch
+{
+	[HarmonyPostfix]
+	private static void Postfix(Turret __instance)
+	{
+		var trt = __instance;
+		var gun = trt.aimSafetyWeapon as Gun;
+		if (gun == null) return;
+		
+		float safetyRadius = 0.2f; 
+		float checkDistance = 20f;
+		
+		if (Physics.SphereCast(gun.transform.position + gun.transform.forward * 2f, safetyRadius, gun.transform.forward, out var hitInfo, checkDistance, -8193))
+		{
+			trt.aimSafetyWeapon.Safety = true;
+		}
+	}
+}

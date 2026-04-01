@@ -18,6 +18,7 @@ public class CargoUIController : MonoBehaviour
     [SerializeField] private Button applyButton;
     [SerializeField] private Button closeButton;
     [SerializeField] private Toggle fobToggle;
+    [SerializeField] private GameObject fobRow;
 
     private DeploymentManager _manager;
     
@@ -33,6 +34,7 @@ public class CargoUIController : MonoBehaviour
         closeButton.onClick.AddListener(Close);
         fobToggle.onValueChanged.AddListener(ToggleFOB);
         fobToggle.interactable = manager.FobAvailable;
+        fobRow.SetActive(manager.FobAvailable);
         
         //foreach (Transform child in scrollContent) Destroy(child.gameObject);
         

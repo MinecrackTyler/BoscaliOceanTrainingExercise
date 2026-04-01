@@ -83,7 +83,7 @@ public class SmokeEjector : Countermeasure
 		GameObject smokeObj = NetworkSceneSingleton<Spawner>.i.SpawnLocal(smokePrefab, Datum.origin);
 		smokeObj.transform.position = ejectionPoint.transform.position;
 		var duration = grenadeDuration + UnityEngine.Random.Range(-0.5f, 0.5f);
-		smokeObj.GetComponent<SmokeGrenade>().LaunchGrenade(ejectionPoint.transform, aircraft.rb.velocity, duration);
+		smokeObj.GetComponent<SmokeGrenade>().LaunchGrenade(ejectionPoint.transform, aircraft.rb.velocity + ejectionPoint.transform.forward * ejectionVelocity, duration);
 		AudioSource audioSource = ejectionPoint.sound;
 		if (audioSource == null)
 		{

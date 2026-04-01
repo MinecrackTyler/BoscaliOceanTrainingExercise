@@ -11,14 +11,12 @@ namespace NOComponentWIP
         [SerializeField] private Aircraft aircraft;
         [SerializeField] private List<CargoDoor> doors;
         [SerializeField] private AirCushion cushion;
-        [SerializeField] private int[] cargoSlots;
+        [SerializeField] private ShipPartBridge bridge;
         
         [Header("Global Settings")]
         [SerializeField] private float globalOpenSpeed = 0.5f;
 
         private float currentOpenAmount = 0f;
-        private WeaponManager wm;
-        private List<HardpointSet> cargoHardpoints;
         private float initialHeight = 2.5f;
         private LandingGear.GearState targetState = LandingGear.GearState.LockedRetracted;
         private bool isProcessing = false;
@@ -42,7 +40,6 @@ namespace NOComponentWIP
             }
 
             initialHeight = cushion?.maxHeight ?? 2.5f;
-            wm = aircraft.weaponManager;
         }
 
         private void OnDestroy()
@@ -53,29 +50,26 @@ namespace NOComponentWIP
         private void HandleGearEvent(Aircraft.OnSetGear e)
         {
             targetState = e.gearState;
+            
 
             if (targetState == LandingGear.GearState.LockedRetracted)
             {
                 isProcessing = false;
                 SetDoors(0f, false);
                 cushion?.maxHeight = initialHeight;
+                bridge?.deploymentManager?.Safety = true;
             }
             else if (targetState == LandingGear.GearState.LockedExtended)
             {
                 isProcessing = false;
                 SetDoors(1f, false);
                 cushion?.maxHeight = 1.5f;
+                bridge?.deploymentManager?.Safety = false;
             }
             else if (!isProcessing && (targetState == LandingGear.GearState.Extending || targetState == LandingGear.GearState.Retracting))
             {
                 ProcessMovement().Forget();
             }
-        }
-
-        private void ToggleSafety(bool safe)
-        {
-            if (wm == null) return;
-            
         }
         
         private async UniTask ProcessMovement()

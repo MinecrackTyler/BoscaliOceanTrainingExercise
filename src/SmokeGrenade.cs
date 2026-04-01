@@ -7,11 +7,11 @@ public class SmokeGrenade : MonoBehaviour
 	[SerializeField] private float smokeDuration = 15f;
 	[SerializeField] private ParticleSystem smokeParticles;
 	[SerializeField] private MeshRenderer grenadeRenderer;
+	[SerializeField] private Collider collider;
 
 	[SerializeField] private Rigidbody rb;
 
 	private bool exploded;
-	private float timer;
 	private float detonationTime;
 
 	private void OnEnable()
@@ -22,13 +22,13 @@ public class SmokeGrenade : MonoBehaviour
 		main.simulationSpace = ParticleSystemSimulationSpace.Custom;
 		main.customSimulationSpace = Datum.origin;
 		main.stopAction = ParticleSystemStopAction.Destroy;
+		collider.enabled = false;
 	}
 
 	public void LaunchGrenade(Transform launchPoint, Vector3 launchVelocity, float duration)
 	{
 		exploded = false;
-		timer = 0f;
-		detonationTime = duration;
+		detonationTime = Time.timeSinceLevelLoad + duration;
 		
 		transform.position = launchPoint.position;
 		transform.rotation = launchPoint.rotation;
@@ -42,9 +42,8 @@ public class SmokeGrenade : MonoBehaviour
 	private void FixedUpdate()
 	{
 		if (exploded) return;
-		timer += Time.fixedDeltaTime;
 
-		if (timer >= detonationTime)
+		if (Time.timeSinceLevelLoad >= detonationTime)
 		{
 			Explode();
 		}
@@ -66,6 +65,7 @@ public class SmokeGrenade : MonoBehaviour
 			
 			smokeParticles.Play();
 		}
+		collider.enabled = true;
 		
 		Destroy(gameObject, smokeDuration + 2f);
 	}

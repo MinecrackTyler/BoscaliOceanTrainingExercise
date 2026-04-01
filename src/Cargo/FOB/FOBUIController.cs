@@ -34,10 +34,12 @@ public class FOBUIController : MonoBehaviour
 	[SerializeField] private Color invalidColor;
 
 	private Camera buildCamera;
+	private bool spawnAirbase;
 	
 	private float buildRadius = 1000f;
 	private GlobalPosition centerPos;
-	private DeploymentManager manager;
+	private Vector3 airbaseCenter;
+	private FOBManager manager;
 	private Aircraft aircraft;
 	
 	private GameObject activeUnit;
@@ -50,7 +52,9 @@ public class FOBUIController : MonoBehaviour
 	private float verticalOffset;
 	private MaterialPropertyBlock propertyBlock;
 	
-	public void Initialize(DeploymentManager manager, Aircraft aircraft, Vector3 center, List<FOBUnit> units, int maxPoints)
+	private List<FOBAssetRow> uiRows = new List<FOBAssetRow>();
+	
+	public void Initialize(FOBManager manager, Aircraft aircraft, Vector3 center, List<FOBUnit> units, int maxPoints)
 	{
 		this.manager = manager;
 		this.maxPoints = maxPoints;
@@ -65,12 +69,35 @@ public class FOBUIController : MonoBehaviour
 		foreach (var unit in units)
 		{
 			var row = Instantiate(ModAssets.i.FOBEditorRow, scrollArea);
-			row.GetComponent<FOBAssetRow>().Setup(unit, this);
+			var rowScript = row.GetComponent<FOBAssetRow>();
+			rowScript.Setup(unit, this);
+			uiRows.Add(rowScript);
 		}
+
+		RefreshRows();
 		RefreshBudget();
 		StartCoroutine(BootScreen());
 		buildCamera = CameraStateManager.i.mainCamera;
 		CameraStateManager.i.SwitchState(CameraStateManager.i.freeState);
+	}
+
+	private void RefreshRows()
+	{
+		foreach (var row in uiRows)
+		{
+			FOBUnit data = row.FOBUnit;
+
+			if (data.maxUnits == -1)
+			{
+				row.Disable(false);
+				continue;
+			}
+			
+			int currentCount = placedUnits.Count(p => p.data == data);
+			bool max = currentCount >= data.maxUnits;
+			
+			row.Disable(max);
+		}
 	}
 
 	private IEnumerator BootScreen()
@@ -82,6 +109,12 @@ public class FOBUIController : MonoBehaviour
 
 	public void SelectUnit(FOBUnit unit)
 	{
+		if (unit.maxUnits != -1)
+		{
+			int count = placedUnits.Count(p => p.data == unit);
+			if (count >= unit.maxUnits) return;
+		}
+		
 		if (activeUnit != null) Destroy(activeUnit);
 
 		activeData = unit;
@@ -105,14 +138,44 @@ public class FOBUIController : MonoBehaviour
 
 		if (activeUnit != null)
 		{
-			if (Physics.Raycast(ray, out RaycastHit hit, 2000f, terrainLayer))
+			Vector3 finalPoint = Vector3.zero;
+			Vector3 finalNormal = Vector3.up;
+			bool hasHit = false;
+
+			bool hitTerrain = Physics.Raycast(ray, out RaycastHit hit, 2000f, terrainLayer);
+
+			float seaY = Datum.LocalSeaY;
+			Plane oceanPlane = new Plane(Vector3.up, new Vector3(0, seaY, 0));
+			bool hitOcean = oceanPlane.Raycast(ray, out float oceanDist);
+
+			if (hitTerrain)
 			{
-				float dist = Vector3.Distance(hit.point, centerPos.ToLocalPosition());
+				if (hit.point.y > seaY)
+				{
+					finalPoint = hit.point;
+					finalNormal = hit.normal;
+				} else if (hitOcean)
+				{
+					finalPoint = ray.GetPoint(oceanDist);
+					finalNormal = Vector3.up;
+				}
+
+				hasHit = true;
+			} else if (hitOcean && oceanDist <= 2000f)
+			{
+				finalPoint = ray.GetPoint(oceanDist);
+				finalNormal = Vector3.up;
+				hasHit = true;
+			}
+			
+			if (hasHit)
+			{
+				float dist = Vector3.Distance(finalPoint, centerPos.ToLocalPosition());
 				bool inRange = dist <= buildRadius;
 				bool canAfford = (currentPoints + activeData.pointCost) <= maxPoints;
 				bool isValid = inRange && canAfford;
 			
-				activeUnit.transform.position = hit.point + Vector3.up * (verticalOffset + activeData.UnitDefinition.spawnOffset.y);
+				activeUnit.transform.position = finalPoint + Vector3.up * (verticalOffset + activeData.UnitDefinition.spawnOffset.y);
 
 				float inputDir = 0;
 				if (Input.GetKey(KeyCode.Q)) inputDir = -1f;
@@ -130,7 +193,7 @@ public class FOBUIController : MonoBehaviour
 				
 				if (!Input.GetKey(KeyCode.LeftAlt))
 				{
-					activeUnit.transform.rotation = Quaternion.FromToRotation(Vector3.up, hit.normal) * Quaternion.Euler(0, currentYRotation, 0);
+					activeUnit.transform.rotation = Quaternion.FromToRotation(Vector3.up, finalNormal) * Quaternion.Euler(0, currentYRotation, 0);
 				}
 				else
 				{
@@ -161,10 +224,16 @@ public class FOBUIController : MonoBehaviour
 					var target = placedUnits.FirstOrDefault(unit =>
 						unit.instance == hit.collider.gameObject || hit.transform.IsChildOf(unit.instance.transform));
 					if (target == null) return;
+					if (target.isCenter)
+					{
+						spawnAirbase = false;
+						airbaseCenter = centerPos.ToLocalPosition();
+					}
 					currentPoints -= target.data.pointCost;
 					placedUnits.Remove(target);
 					Destroy(target.instance);
 					RefreshBudget();
+					RefreshRows();
 				}
 			}
 		}
@@ -172,12 +241,21 @@ public class FOBUIController : MonoBehaviour
 	
 	private void PlaceUnit()
 	{
+		bool makeCenter = false;
+		if (activeData.IsAirbaseCenter && !spawnAirbase)
+		{
+			spawnAirbase = true;
+			airbaseCenter = activeUnit.transform.position;
+			makeCenter = true;
+		}
+		
 		var placed = new PlacedFOBUnit
 		{
 			data = activeData,
 			instance = activeUnit,
 			position = activeUnit.transform.position,
-			rotation = activeUnit.transform.rotation
+			rotation = activeUnit.transform.rotation,
+			isCenter = makeCenter
 		};
 		
 		placedUnits.Add(placed);
@@ -193,6 +271,7 @@ public class FOBUIController : MonoBehaviour
 		activeUnit = null;
 		activeData = null;
 		RefreshBudget();
+		RefreshRows();
 	}
 	
 	private void SetGhostColor(GameObject ghost, Color color)
@@ -222,7 +301,7 @@ public class FOBUIController : MonoBehaviour
 	{
 		finalizeButton.onClick.RemoveAllListeners();
 		
-		manager.FinalizeFOB(placedUnits);
+		manager.FinalizeFOB(placedUnits, spawnAirbase, airbaseCenter);
 		Close();
 	}
 
@@ -248,4 +327,5 @@ public class PlacedFOBUnit
 	public GameObject instance;
 	public Vector3 position;
 	public Quaternion rotation;
+	public bool isCenter;
 }

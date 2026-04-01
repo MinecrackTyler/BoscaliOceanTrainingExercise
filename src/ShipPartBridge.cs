@@ -18,6 +18,10 @@ public class ShipPartBridge : MonoBehaviour
 	[SerializeField] private Ship.WakeParticles[] wakeParticles;
 	private float gearTimer = 0f;
 	
+	public DeploymentManager deploymentManager;
+	public FOBManager fobManager;
+	public ResupplyController resupplyController;
+	
 	public void Awake()
 	{
 		aircraft.onDisableUnit += UnitDisabled;
@@ -144,20 +148,25 @@ public class ShipPartBridge : MonoBehaviour
 	
 	public void SetComplexPhysics()
 	{
-		var aeroPart = aircraft.GetComponent<AeroPart>();
+		var colliders = aircraft.GetComponentsInChildren<Collider>();
+		foreach (var collider1 in colliders)
+		{
+			foreach (var collider2 in colliders)
+			{
+				if (collider1 == collider2) continue;
+				Physics.IgnoreCollision(collider1, collider2);
+			}
+		}
+		
 		foreach (var part in parts)
 		{
 			part.CreateRB(aircraft.rb.GetPointVelocity(part.transform.position), Vector3.zero);
-			//aeroPart.ModifyMass(part.mass);
-			//Debug.Log($"[KOAT] {parts.Count} parts, {aeroPart.mass} mass.");
-
 		}
 
 		foreach (var part in parts)
 		{
 			part.CreateJoints();
 		}
-		
 	}
 
 	public void SetSimplePhysics()

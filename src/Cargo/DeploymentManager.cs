@@ -14,8 +14,7 @@ public class DeploymentManager : NetworkBehaviour
 {
     public Transform spawnPoint;
     public List<DeployableUnit> availableUnits;
-    public List<FOBUnit> availableFOBUnits;
-    [SerializeField] private bool fobAvailable;
+    [SerializeField] private FOBManager fobManager;
     [SerializeField] private int maxPoints;
     [SerializeField] private int fobCost;
     [SerializeField] private float spawnVelocity;
@@ -23,20 +22,24 @@ public class DeploymentManager : NetworkBehaviour
     public List<DeployableUnit> presetUnits;
 
     public readonly SyncList<int> unitManifest = new SyncList<int>();
-    [SyncVar] private bool hasFOB;
     [SyncVar] private bool fobSelected;
     [SyncVar] private int selectedIndex = 0;
     
-    public bool buildingFob;
     
     [SerializeField] private Aircraft aircraft;
 
+    public bool Safety = false;
+
     public int MaxPoints => maxPoints;
     public int FobCost => fobCost;
-    public bool FobAvailable => fobAvailable;
-    public bool HasFOB => hasFOB;
+    public bool FobAvailable => fobManager != null;
+    public bool HasFOB => FobAvailable && fobManager.hasFob;
     public bool FobSelected => fobSelected;
     public int SelectedIndex => selectedIndex;
+
+    public List<int> UnitManifest => new List<int>(unitManifest);
+
+    private float lastDeployTime;
 
     private void Awake()
     {
@@ -108,13 +111,10 @@ public class DeploymentManager : NetworkBehaviour
     [ServerRpc(requireAuthority = false)]
     public void CmdSetManifest(int[] unitIds, bool hasFOB)
     {
-        /*var active = NetworkManagerNuclearOption.i.Server.Active;
-        Debug.Log($"[BOAT] Manifest Set. Active is {active}");
-        if (!active) return;*/
         Debug.Log($"Received manifest request. Count: {unitIds.Length}");
         
         unitManifest.Clear();
-        this.hasFOB = hasFOB;
+        fobManager?.hasFob = hasFOB;
         Array.Sort(unitIds);
         foreach (int id in unitIds)
         {
@@ -126,22 +126,32 @@ public class DeploymentManager : NetworkBehaviour
 
     private void Update()
     {
-        if (!aircraft.LocalSim || (IsEmpty() && !hasFOB)) return;
+        if (!aircraft.LocalSim || (IsEmpty() && !HasFOB)) return;
 
-        if (Input.GetKeyDown(KeyCode.UpArrow) && hasFOB)
+        var player = aircraft.pilots[0]?.playerState?.player;
+        if (player == null) return;
+        if (player.GetButtonDown("Select/Deselect FOB"))
         {
-            CmdRequestSelectionChange(0, true);
-        } else if (Input.GetKeyDown(KeyCode.DownArrow) && hasFOB)
-        {
-            CmdRequestSelectionChange(0, false);
+            if (!HasFOB) return;
+            CmdRequestSelectionChange(0, !fobSelected);
         }
-        else if (Input.GetKeyDown(KeyCode.LeftArrow))
+
+        if (player.GetButtonDown("Next Unit"))
         {
-            CmdRequestSelectionChange(-1, false);
+            CmdRequestSelectionChange(1, fobSelected);
+        } else if (player.GetButtonDown("Previous Unit"))
+        {
+            CmdRequestSelectionChange(-1, fobSelected);
         }
-        else if (Input.GetKeyDown(KeyCode.RightArrow))
+
+        if (player.GetButton("Deploy Unit") && !Safety)
         {
-            CmdRequestSelectionChange(1, false);
+            if (Time.timeSinceLevelLoad > lastDeployTime + 1f)
+            {
+                lastDeployTime = Time.timeSinceLevelLoad;
+                CmdDeployUnit();
+            }
+            
         }
     }
     
@@ -171,14 +181,21 @@ public class DeploymentManager : NetworkBehaviour
 
     public bool IsEmpty() => unitManifest.Count == 0;
 
+    [ServerRpc]
+    public void CmdDeployUnit()
+    {
+        DeployUnit();
+    }
+
+    [Server]
     public void DeployUnit()
     {
-        if (!aircraft.IsServer || (IsEmpty() && !hasFOB)) return;
+        if (IsEmpty() && !HasFOB) return;
 
         if (fobSelected)
         {
-            DeployFOB();
-            hasFOB = false;
+            fobManager.hasFob = false;
+            fobManager.DeployFOB();
             fobSelected = false;
             return;
         }
@@ -188,115 +205,24 @@ public class DeploymentManager : NetworkBehaviour
         
         Vector3 spawnVel = aircraft.rb.velocity + spawnPoint.forward * spawnVelocity;
         
-        unit.SpawnUnit(spawnPoint.position, spawnPoint.rotation, spawnVel, aircraft);
-        
+        unit.SpawnUnit(spawnPoint.position, spawnPoint.rotation, spawnVel, aircraft, out var spawned);
+        if (!spawned) return;
         unitManifest.RemoveAt(selectedIndex);
         
         if (selectedIndex >= unitManifest.Count && unitManifest.Count > 0)
         {
-           selectedIndex = unitManifest.Count - 1;
+            selectedIndex = unitManifest.Count - 1;
         }
     }
 
-    [ServerRpc]
-    public void ResetFOB()
+    public int ContainsUnit(UnitDefinition unitDefinition)
     {
-        hasFOB = true;
-    }
-
-    [ClientRpc(target = RpcTarget.Owner)]
-    private void DeployFOB()
-    {
-        StartCoroutine(FOBBuilder());
-    }
-
-    private IEnumerator FOBBuilder()
-    {
-        var canvas = GameplayUI.i.gameplayCanvas;
-        if (canvas == null) yield break;
-        
-        CursorManager.SetFlag(CursorFlags.Map, value: true);
-        DynamicMap.AllowedToOpen = false;
-        GameManager.flightControlsEnabled = false;
-        LoadoutBridge.BlockInputs = true;
-        aircraft.onDisableUnit += Disable;
-        
-        var fobUI = Instantiate(ModAssets.i.FOBEditorUI, canvas.transform);
-        var manager = fobUI.GetComponent<FOBUIController>();
-        manager.Initialize(this, aircraft, aircraft.rb.position, availableFOBUnits,160);
-        buildingFob = this;
-        
-        yield return new WaitUntil(() => !buildingFob); //will be changed to check when fob is done
-        
-        Destroy(fobUI.gameObject);
-        
-        CursorManager.SetFlag(CursorFlags.Map, value: false);
-        Disable(aircraft);
-        aircraft.onDisableUnit -= Disable;
-    }
-
-    public void FinalizeFOB(List<PlacedFOBUnit> placedUnits)
-    {
-        int count = placedUnits.Count;
-        
-        int[] indices = new int[count];
-        Vector3[] positions = new Vector3[count];
-        Quaternion[] rotations = new Quaternion[count];
-
-        for (int i = 0; i < count; i++)
+        foreach (var unitIndex in unitManifest)
         {
-            var unit = placedUnits[i];
-            indices[i] = availableFOBUnits.IndexOf(unit.data);
-            positions[i] = unit.position.ToGlobalPosition().AsVector3();
-            rotations[i] = unit.rotation;
+            var du = availableUnits[unitIndex];
+            if (du.UnitDefinition == unitDefinition) return unitIndex;
         }
-        
-        CmdFinalizeFOB(indices, positions, rotations);
-    }
-    
-    [ServerRpc]
-    private void CmdFinalizeFOB(int[] indices, Vector3[] positions, Quaternion[] rotations)
-    {
-        if (indices.Length != positions.Length || indices.Length != rotations.Length)
-        {
-            //Debug.LogError("[FOB] Network array mismatch! Aborting spawn.");
-            return;
-        }
-        
-        GameObject go = Instantiate(GameAssets.i.airbasePrefab, Datum.origin);
-        string uname = $"FOB_{aircraft.Player.PlayerName}_{Time.time}";
-		go.name = uname; // create unique name
-        var filter = go.AddComponent<AirbaseAIFilter>();
-        filter.AddAllowedKey("UtilityHelo1");
-        filter.AddAllowedKey("AttackHelo1");
-        filter.AddAllowedKey("QuadVTOL1");
-		var airbase = go.GetComponent<Airbase>();
-		airbase.transform.position = transform.position;
-		airbase.center.localPosition = Vector3.zero;
-		airbase.airbaseSettings.CaptureRange = 100f;
-        airbase.SavedAirbase.UniqueName = uname;
-        airbase.SavedAirbase.DisplayName = $"FOB: {aircraft.Player.PlayerName}";
-		airbase.capture.SetCapturable(true);
-		airbase.CaptureFaction(aircraft.NetworkHQ);
-		NetworkManagerNuclearOption.i.ServerObjectManager.Spawn(airbase.Identity);
-        
-        for (int i = 0; i < indices.Length; i++)
-        {
-            int dataIndex = indices[i];
-            if (dataIndex < 0 || dataIndex >= availableFOBUnits.Count) continue;
-            
-            var data = availableFOBUnits[dataIndex];
-            var gp = new GlobalPosition(positions[i].x,  positions[i].y, positions[i].z);
-            var spawnedObj = data.SpawnUnit(gp.ToLocalPosition(), rotations[i], Vector3.zero, aircraft);
-        
-            if (spawnedObj != null)
-            {
-                var building = spawnedObj.GetComponent<Building>();
-                if (building != null)
-                {
-                    building.SetAirbase(airbase);
-                }
-            }
-        }
+
+        return -1;
     }
 }

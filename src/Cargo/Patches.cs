@@ -49,7 +49,7 @@ public static class AircraftSelectionMenuPatch
 		newButton.gameObject.SetActive(false);
 	}
 	
-	private static List<String> nameList = ["LandingKraft"];
+	private static List<String> nameList = ["LandingKraft", "Destroyer1_Player"];
 	private static bool selected = false;
 
 	[HarmonyPatch("SpawnPreview")]
