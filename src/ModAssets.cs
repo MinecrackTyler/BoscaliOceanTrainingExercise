@@ -33,6 +33,9 @@ public class ModAssets : ScriptableObject
 	[SerializeField] public List<string> aircraftKeys;
 	[SerializeField] public List<RailHangarEntry> aircraftEntries;
 
+	[SerializeField] public AircraftDefinition[] shipDefinitions;
+	[SerializeField] public AircraftDefinition[] shipDefinitionsWithDeployer;
+
 	
 
 	private void OnEnable()

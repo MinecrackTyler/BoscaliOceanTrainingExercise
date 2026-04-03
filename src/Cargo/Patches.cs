@@ -49,14 +49,13 @@ public static class AircraftSelectionMenuPatch
 		newButton.gameObject.SetActive(false);
 	}
 	
-	private static List<String> nameList = ["LandingKraft", "Destroyer1_Player", "FleetKarrier"];
 	private static bool selected = false;
 
 	[HarmonyPatch("SpawnPreview")]
 	[HarmonyPostfix]
 	static void Postfix(AircraftSelectionMenu __instance)
 	{
-		if (nameList.Contains(__instance?.previewAircraft?.definition?.jsonKey))
+		if (ModAssets.i.shipDefinitionsWithDeployer.Contains(__instance.previewAircraft?.definition))
 		{
 			newButton?.gameObject.SetActive(true);
 			selected = true;

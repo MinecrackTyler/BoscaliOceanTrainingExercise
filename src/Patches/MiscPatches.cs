@@ -107,29 +107,6 @@ public static class HudCrosshairPatch
 	}
 }
 
-[HarmonyPatch(typeof(WeaponStation), "SafetyIsOn")]
-public static class WeaponStationPatch
-{
-	[HarmonyPostfix]
-	public static void Postfix(WeaponStation __instance, Aircraft aircraft, ref bool __result)
-	{
-		if (__result) return;
-		
-		if (__instance.Cargo)
-		{
-			var cargoDoor = aircraft.GetComponentInChildren<CargoDoorController>();
-            
-			if (cargoDoor != null)
-			{
-				if (cargoDoor.IsOpen())
-				{
-					__result = true;
-				}
-			}
-		}
-	}
-}
-
 /*[HarmonyPatch(typeof(Spawner), "SpawnUnit")] //this is awful
 public static class Spawner_OTB_Rotation_Patch
 {
@@ -197,7 +174,6 @@ public class Patch_AeroPart_ApplyJobFields
 [HarmonyPatch(typeof(Hangar), "SpawnAircraft")]
 public class Hangar_SpawnAircraft
 {
-	private static List<string> allowedList = ["Destroyer1_Player", "LandingKraft", "Korvette1", "FleetKarrier"];
 	private static List<AircraftDefinition> processedAircraft = new List<AircraftDefinition>();
 	
 	[HarmonyPrefix]
@@ -212,7 +188,7 @@ public class Hangar_SpawnAircraft
 			processedAircraft.Add(definition);
 		}
 		
-		if (!allowedList.Contains(definition.jsonKey)) return true;
+		if (!ModAssets.i.shipDefinitions.Contains(definition)) return true;
 		var hgr = __instance;
 
 		GlobalPosition tempgp = hgr.spawnTransform.GlobalPosition();
@@ -414,6 +390,11 @@ public static class PlayerControlsPatch
 	private static void Postfix(PilotPlayerState __instance)
 	{
 		if (!GameManager.flightControlsEnabled || (double)__instance.pilotStrength < 0.2)
+		{
+			return;
+		}
+
+		if (!ModAssets.i.shipDefinitions.Contains(__instance.pilot.aircraft.definition))
 		{
 			return;
 		}

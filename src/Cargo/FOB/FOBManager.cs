@@ -14,6 +14,8 @@ public class FOBManager : NetworkBehaviour
     public bool buildingFob;
     [SyncVar] public bool hasFob;
     
+    private GameObject fobUI;
+    
 	[ClientRpc(target = RpcTarget.Owner)]
 	public void DeployFOB()
 	{
@@ -31,14 +33,12 @@ public class FOBManager : NetworkBehaviour
         LoadoutBridge.BlockInputs = true;
         aircraft.onDisableUnit += Disable;
         
-        var fobUI = Instantiate(ModAssets.i.FOBEditorUI, canvas.transform);
+        fobUI = Instantiate(ModAssets.i.FOBEditorUI, canvas.transform);
         var manager = fobUI.GetComponent<FOBUIController>();
         manager.Initialize(this, aircraft, aircraft.rb.position, availableFOBUnits,160);
         buildingFob = this;
         
         yield return new WaitUntil(() => !buildingFob); //will be changed to check when fob is done
-        
-        Destroy(fobUI.gameObject);
         
         CursorManager.SetFlag(CursorFlags.Map, value: false);
         Disable(aircraft);
@@ -47,6 +47,7 @@ public class FOBManager : NetworkBehaviour
     
     private void Disable(Unit unit)
     {
+        Destroy(fobUI?.gameObject);
         DynamicMap.AllowedToOpen = true;
         LoadoutBridge.Clear();
         LoadoutBridge.BlockInputs = false;

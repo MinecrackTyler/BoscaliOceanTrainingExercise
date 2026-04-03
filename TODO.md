@@ -1,8 +1,8 @@
 ## Bug Fixes: 
 
-- Fob Creator breaks on death
+- ~~Fob Creator breaks on death~~
 - ~~Naval CIWS stinky~~
-- Bote stability hopefully
+- ~~Bote stability hopefully~~
 - missile launcher funky
 
 ## additions
@@ -11,3 +11,4 @@
 - disembarking
 - fob for aircraft?
 - disembark notice
+- damage control UI
