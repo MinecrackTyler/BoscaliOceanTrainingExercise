@@ -59,6 +59,7 @@ public class ResupplyController : NetworkBehaviour
 			
 			if (spawnWait.IsTimeout) yield break;
 		}
+		SoundManager.PlayInterfaceOneShot(GameAssets.i.radioStatic);
 
 		var spawnedAircraft = result.Hangar.spawnedObject.GetComponent<Aircraft>();
 		var pilot = spawnedAircraft?.pilots[0];

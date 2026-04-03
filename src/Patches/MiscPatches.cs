@@ -197,7 +197,7 @@ public class Patch_AeroPart_ApplyJobFields
 [HarmonyPatch(typeof(Hangar), "SpawnAircraft")]
 public class Hangar_SpawnAircraft
 {
-	private static List<string> allowedList = ["Destroyer1_Player", "LandingKraft", "Korvette1"];
+	private static List<string> allowedList = ["Destroyer1_Player", "LandingKraft", "Korvette1", "FleetKarrier"];
 	private static List<AircraftDefinition> processedAircraft = new List<AircraftDefinition>();
 	
 	[HarmonyPrefix]
@@ -445,5 +445,35 @@ public static class TurretPatch
 		{
 			trt.aimSafetyWeapon.Safety = true;
 		}
+	}
+}
+
+[HarmonyPatch(typeof(Turret), nameof(Turret.AttachToWeaponManager))]
+public static class TurretAttachPatch
+{
+	[HarmonyPostfix]
+	private static void Postfix(Turret __instance, Aircraft aircraft)
+	{
+		if (__instance.targetAcquisitionMode == Turret.TargetAcquisitionMode.parentUnitTargetDetector &&
+		    __instance.attachedUnit != null)
+		{
+			if (!__instance.attachedUnit.radar) return;
+			__instance.RegisterTargetDetector(__instance.attachedUnit.radar);
+		}
+	}
+}
+
+[HarmonyPatch(typeof(Turret), nameof(Turret.SetTarget), typeof(PersistentID), typeof(byte))]
+public static class TurretSetTargetPatch
+{
+	[HarmonyPostfix]
+	private static void Postfix(Turret __instance, PersistentID id)
+	{
+		if (__instance.attachedUnit.disabled) return;
+		UnitRegistry.TryGetUnit(id, out var target);
+		if (target == null) return;
+		if (!__instance.aimSafetyWeapon) return;
+		__instance.aimSafetyWeapon.SetTarget(target);
+		__instance.aimSolver.SetTarget(__instance.attachedUnit, target, __instance.aimSafetyWeapon.transform, __instance.aimSafetyWeapon.info);
 	}
 }
