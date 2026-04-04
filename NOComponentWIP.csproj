@@ -94,4 +94,9 @@
   <ItemGroup>
     <None Remove="bote_1.3.0.nobp" />
   </ItemGroup>
+
+  <ItemGroup>
+    <None Remove="bote_1.3.1.nobp" />
+    <EmbeddedResource Include="bote_1.3.1.nobp" />
+  </ItemGroup>
 </Project>

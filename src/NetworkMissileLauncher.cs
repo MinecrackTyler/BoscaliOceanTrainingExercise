@@ -84,8 +84,19 @@ public class NetworkMissileLauncher : Weapon
         {
             return;
         }
-
+        
         QueuedFire(owner, target, inheritedVelocity, weaponStation, aimpoint).Forget();
+        if (owner is Aircraft aircraft)
+        {
+            if (aircraft.IsServer)
+            {
+                aircraft.RpcLaunchMissile(weaponStation.Number, target, aimpoint);
+            }
+            else if (aircraft.HasAuthority)
+            {
+                aircraft.CmdLaunchMissile(weaponStation.Number, target, aimpoint);
+            }
+        }
     }
 
     private async UniTaskVoid QueuedFire(
@@ -97,7 +108,6 @@ public class NetworkMissileLauncher : Weapon
     {
         await firingSemaphore.WaitAsync(destroyCancellationToken);
         
-
         try
         {
             if (bayDoors != null && bayDoors.Length > 0)
@@ -137,22 +147,12 @@ public class NetworkMissileLauncher : Weapon
             {
                 return;
             }
-
+            
+            foreach (BayDoor bayDoor in bayDoors)
+                bayDoor?.OpenDoor(doorOpenDuration);
+            
             TrackFiringVisibility().Forget();
             lastFired = Time.timeSinceLevelLoad;
-            weaponStation.UpdateLastFired(1);
-
-            if (owner is Aircraft aircraft)
-            {
-                if (aircraft.IsServer)
-                {
-                    aircraft.RpcLaunchMissile(weaponStation.Number, target, aimpoint);
-                }
-                else if (aircraft.HasAuthority)
-                {
-                    aircraft.CmdLaunchMissile(weaponStation.Number, target, aimpoint);
-                }
-            }
 
             if (owner.IsServer)
             {
@@ -180,11 +180,12 @@ public class NetworkMissileLauncher : Weapon
             }
 
             launchSound?.Play();
-
+            
+            launchTransform.gameObject.SetActive(false);
             loadedMissiles--;
             ammo--;
             currentTube++;
-            launchTransform.gameObject.SetActive(false);
+            weaponStation.UpdateLastFired(0);
             weaponStation.AccountAmmo();
             weaponStation.Updated();
 

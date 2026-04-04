@@ -49,6 +49,7 @@ public class DeploymentManager : NetworkBehaviour
     private void OnLocalPlayerStart()
     {
         if (!aircraft.LocalSim) return;
+        if (aircraft.Player == null) return;
         Debug.Log($"[BOAT] Local Player Started. Initializing Manifest...");
         
         List<int> presetIds = new List<int>();

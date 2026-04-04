@@ -22,7 +22,7 @@ public class RailHangarController : NetworkBehaviour
         if (aircraft == null) Destroy(this);
         if (GameManager.gameState == GameState.Editor) return;
 
-        boosterPrefab = ModAssets.i.aircraftEntries[ModAssets.i.aircraftKeys.IndexOf(aircraft.definition.jsonKey)].boosterPrefab;
+        boosterPrefab = ModAssets.i.aircraftEntries[ModAssets.i.aircraftDefs.IndexOf(aircraft.definition)].boosterPrefab;
         railAttachPoint = aircraft.transform.Find("RailAttachPoint");
         aircraft.onInitialize += OnAircraftInitialize;
         

@@ -30,7 +30,7 @@ public class ModAssets : ScriptableObject
 	public GameObject CargoEditorUI;
 	public GameObject CargoEditorRow;
 
-	[SerializeField] public List<string> aircraftKeys;
+	[SerializeField] public List<AircraftDefinition> aircraftDefs;
 	[SerializeField] public List<RailHangarEntry> aircraftEntries;
 
 	[SerializeField] public AircraftDefinition[] shipDefinitions;
