@@ -189,6 +189,9 @@ public class AircraftPatches
 				__instance.definition.spawnOffset.y -= difference;
 			}
 		}
+		// Close an existing CargoUI instance when local player spawns in to prevent it from staying open
+		if (__instance.Player.IsLocalPlayer)
+			UnityEngine.Object.FindObjectOfType<CargoUIController>()?.Close();
 	}
 	
 
