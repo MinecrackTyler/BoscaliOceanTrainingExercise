@@ -100,6 +100,13 @@ public static class AircraftSelectionMenuPatch
 		cargoValue?.gameObject.SetActive(false);
 	}
 
+	[HarmonyPatch(nameof(AircraftSelectionMenu.SetSelectedType))]
+	[HarmonyPostfix]
+	private static void SetSelectedType_Postfix(AircraftSelectionMenu __instance)
+	{
+		LoadoutBridge.Clear();
+	}
+
 	[HarmonyPatch(nameof(AircraftSelectionMenu.UpdateReadouts))]
 	[HarmonyPrefix]
 	private static bool UpdateReadouts_Prefix(AircraftSelectionMenu __instance)
