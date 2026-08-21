@@ -183,7 +183,7 @@ public static class AircraftSelectionMenuPatch
 	[HarmonyPrefix]
 	private static bool Update_Prefix(AircraftSelectionMenu __instance)
 	{
-		if (!selected) return true;
+		if (!selected || !UnitConfig.UnitEconomy()) return true;
 
 		var menu = __instance;
 		
