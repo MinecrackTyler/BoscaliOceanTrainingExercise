@@ -66,6 +66,8 @@ public class FOBUIController : MonoBehaviour
 		
 		finalizeButton.onClick.AddListener(FinalizeFOB);
 		cancelButton.onClick.AddListener(CancelFOB);
+
+		aircraft.onDisableUnit += _ => Close();
 		
 		foreach (Transform child in scrollArea) Destroy(child.gameObject);
 
@@ -320,7 +322,7 @@ public class FOBUIController : MonoBehaviour
 		manager?.FinalizeFOB(placedUnits, spawnAirbase, airbaseCenter);
 		Close();
 	}
-
+	
 	private void CancelFOB()
 	{
 		manager?.ResetFOB();
