@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 using NOComponentWIP.Patches;
 using NOComponentWIP.ServerConfig;
+using NOComponentWIP.Systems;
 using NuclearOption.UIStyleSystem;
 using TMPro;
 
@@ -38,8 +39,7 @@ public class ShipHUD : HUDApp
     public override void Initialize(Aircraft aircraft)
     {
         this.aircraft = aircraft;
-        bridge = aircraft.GetComponent<ShipPartBridge>();
-        if (bridge == null) return;
+        if (!aircraft.TryGetShipBridge(out bridge)) return;
         
         manager = bridge.deploymentManager;
         fobManager = bridge.fobManager;

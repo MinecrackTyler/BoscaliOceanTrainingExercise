@@ -26,10 +26,14 @@ public class SmoothAircraftNetworkTransform : AircraftNetworkTransform
 			return;
 		}
 
-		if (!Aircraft.rb.isKinematic && TryGetSnapshot(ref visualTime, out var snapshot))
+		using (visualUpdateMarker.Auto())
 		{
-			networkSmoother.SmoothRB(Aircraft.rb, snapshot);
-			Aircraft.CheckSpawnedInPosition();
+			if (!Aircraft.rb.isKinematic && TryGetSnapshot(ref visualTime, out var snapshot))
+			{
+				if (Aircraft.rb == null) return; //idk maybe will fix issue?
+				networkSmoother.SmoothRB(Aircraft.rb, snapshot);
+				Aircraft.CheckSpawnedInPosition();
+			}
 		}
 	}
 }

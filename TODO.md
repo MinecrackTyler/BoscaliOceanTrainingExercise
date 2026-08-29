@@ -9,7 +9,6 @@
 ## additions
 
 - escort spawning
-- unit costs
 - swap to/from AI? (in progress)
 - fob for aircraft?
 - damage control UI
@@ -20,6 +19,5 @@
 - finish swap system
 - helicopter speed matching
 - ships can technically still recover themselves
-- pb weapons
 - check log issues
 - spawning below water came back mitch AAAAAAAAAAAAAAAAAAAAAAAAAAA

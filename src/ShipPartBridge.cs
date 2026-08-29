@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using NOComponentWIP.Systems;
 using NuclearOption.Jobs;
 using UnityEngine;
 
@@ -13,8 +14,10 @@ public class ShipPartBridge : MonoBehaviour
 	public float damageControlDeploymentThreshold;
 	public float damageControlAvailable;
 	public bool disabled => aircraft.disabled;
+	public bool Protected => Time.timeSinceLevelLoad < protectEnd;
 
 	[SerializeField] private bool handleGear;
+	[SerializeField] private float spawnProtectTime = 10f;
 
 	[SerializeField] private Ship.WakeParticles[] wakeParticles;
 	[SerializeField] private AudioSource[] waterSounds;
@@ -26,6 +29,7 @@ public class ShipPartBridge : MonoBehaviour
 	public FOBManager fobManager;
 	public ResupplyController resupplyController;
 	private bool musicStarted = false;
+	private float protectEnd;
 	
 	public void Awake()
 	{
@@ -123,6 +127,8 @@ public class ShipPartBridge : MonoBehaviour
 
 	private void OnInitialize()
 	{
+		protectEnd = Time.timeSinceLevelLoad + spawnProtectTime;
+		
 		if (handleGear)
 		{
 			aircraft.SetGear(false);

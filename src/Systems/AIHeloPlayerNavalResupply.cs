@@ -2,6 +2,8 @@ using HarmonyLib;
 using NuclearOption.Networking;
 using UnityEngine;
 
+namespace NOComponentWIP.Systems;
+
 [HarmonyPatch]
 public class AIHeloPlayerNavalResupply : AIHeloTransportState
 {

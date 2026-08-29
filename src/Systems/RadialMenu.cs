@@ -4,7 +4,7 @@ using System.Linq;
 using HarmonyLib;
 using UnityEngine;
 
-namespace NOComponentWIP;
+namespace NOComponentWIP.Systems;
 
 [CreateAssetMenu(fileName = "New Radial Menu", menuName = "CustomActions/RadialMenu")]
 public class RadialMenu : ScriptableObject
@@ -146,6 +146,7 @@ public class BOTEUnitAction : CustomMenuAction
 
 	public override bool AllowedOnAircraft(Aircraft aircraft)
 	{
+		
 		switch (customActionType)
 		{
 			case CustomActionType.Deploy:

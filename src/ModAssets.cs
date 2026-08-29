@@ -33,22 +33,26 @@ public class ModAssets : ScriptableObject
 		internal set => _instance = value;
 	}
 
+	[Header("Lists")]
+	[SerializeField] private AircraftDefinition[] shipDefinitions;
+	[SerializeField] private AircraftDefinition[] shipDefinitionsWithDeployer;
+	[SerializeField] private List<DeployableUnit> allDeployableUnits;
+	
+	public RadialMenuAction[] actionsToAdd;
+	
+	[Header("Assets")]
+	public BuildingDefinition dockDef;
+	public GameObject networkModSingletons;
+	public GameObject modSingletons;
+	public Sprite RadarHUDIcon;
 	public GameObject FOBEditorUI;
 	public GameObject FOBEditorRow;
 	public GameObject CargoEditorUI;
 	public GameObject CargoEditorRow;
+	
 
-	[SerializeField] public AircraftDefinition[] shipDefinitions;
-	[SerializeField] public AircraftDefinition[] shipDefinitionsWithDeployer;
-
-	[SerializeField] public BuildingDefinition dockDef;
-
-	[SerializeField] public GameObject networkModSingletons;
-	[SerializeField] public GameObject modSingletons;
-
-	[SerializeField] public RadialMenuAction[] actionsToAdd;
-	[SerializeField] private List<DeployableUnit> allDeployableUnits;
-
+	//Runtime
+	
 	public readonly Dictionary<string, DeployableUnit> AllDeployableUnits = new();
 	public readonly HashSet<AircraftDefinition> ShipDefinitions = new();
 	public readonly HashSet<AircraftDefinition> ShipDefinitionsWithDeployer = new();

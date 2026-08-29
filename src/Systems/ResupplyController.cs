@@ -1,12 +1,9 @@
-using System;
 using System.Collections;
-using System.Linq;
 using Mirage;
-using NOComponentWIP.Patches;
 using NuclearOption.Networking;
 using UnityEngine;
 
-namespace NOComponentWIP;
+namespace NOComponentWIP.Systems;
 
 public class ResupplyController : NetworkBehaviour
 {

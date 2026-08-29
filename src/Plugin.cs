@@ -10,6 +10,7 @@ using BepInEx.Configuration;
 using BepInEx.Logging;
 using HarmonyLib;
 using NOComponentWIP.ServerConfig;
+using NOComponentWIP.Systems;
 using Rewired;
 using Rewired.UI.ControlMapper;
 using UnityEngine;
@@ -20,7 +21,7 @@ public static class MyPluginInfo
 {
 	public const string PLUGIN_GUID = "com.minec.bote";
 	public const string PLUGIN_NAME = "BoscaliOceanTrainingExercise";
-	public const string PLUGIN_VERSION = "1.5.1";
+	public const string PLUGIN_VERSION = "1.5.2";
 }
 
 

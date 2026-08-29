@@ -1,8 +1,54 @@
-using System.Linq;
 using Mirage;
 using UnityEngine;
+using System.Linq;
+using System.Runtime.CompilerServices;
 
-namespace NOComponentWIP.Patches;
+namespace NOComponentWIP;
+
+public static class TransformExtensions
+{
+	public static T GetComponentInParentWithDepth<T>(this Transform startTransform, int maxDepth) where T : Component
+	{
+		Transform current = startTransform;
+		for (int i = 0; i <= maxDepth && current != null; i++)
+		{
+			if (current.TryGetComponent<T>(out var component)) return component;
+			current = current.parent;
+		}
+		return null;
+	}
+}
+
+public static class UnitDefinitionExtensions
+{
+	public static bool IsShipDefinition(this UnitDefinition definition)
+	{
+		return ModAssets.i.ShipDefinitions.Contains(definition as AircraftDefinition);
+	}
+	
+	public static bool IsShipDefinitionWithDeployer(this UnitDefinition definition)
+	{
+		return ModAssets.i.ShipDefinitionsWithDeployer.Contains(definition as AircraftDefinition);
+	}
+}
+
+public static class AircraftExtensions
+{
+	private static ConditionalWeakTable<Aircraft, ShipPartBridge> cache;
+
+	public static bool TryGetShipBridge(this Aircraft aircraft, out ShipPartBridge bridge)
+	{
+		if (cache.TryGetValue(aircraft, out bridge)) return true;
+		bridge = aircraft.GetComponent<ShipPartBridge>();
+		if (bridge != null)
+		{
+			cache.Add(aircraft, bridge);
+			return true;
+		}
+
+		return false;
+	}
+}
 
 public static class HQExtensions
 {

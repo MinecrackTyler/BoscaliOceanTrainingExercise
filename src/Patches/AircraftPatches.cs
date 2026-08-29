@@ -13,8 +13,7 @@ public class AircraftPatches
 	[HarmonyPrefix]
 	static bool SetSimplePhysics_Prefix(Aircraft __instance)
 	{
-		var bridge = __instance.GetComponent<ShipPartBridge>();
-		if (bridge == null) return true;
+		if (!__instance.TryGetShipBridge(out var bridge)) return true;
 		
 		ColorLog<Unit>.Info("Setting " + __instance.unitName + " physics to Simplified");
 		foreach (UnitPart item in __instance.partLookup)
@@ -34,8 +33,7 @@ public class AircraftPatches
 	[HarmonyPrefix]
 	static bool SetComplexPhysics_Prefix(Aircraft __instance)
 	{
-		var bridge = __instance.GetComponent<ShipPartBridge>();
-		if (bridge == null) return true;
+		if (!__instance.TryGetShipBridge(out var bridge)) return true;
 		
 		ColorLog<Unit>.Info("Setting " + __instance.unitName + " physics to Complex");
 		foreach (UnitPart item in __instance.partLookup)
@@ -126,7 +124,7 @@ public class AircraftPatches
 	static void FixedUpdate_Postfix(Aircraft __instance)
 	{
 		var ac = __instance;
-		if (!ModAssets.i.ShipDefinitions.Contains(__instance.definition)) return; 
+		if (!__instance.definition.IsShipDefinition()) return; 
 		if (ac.hit.collider != null && ac.hit.collider.attachedRigidbody != null)
 		{
 			var velocity = ac.cockpit.rb.velocity;
@@ -138,7 +136,7 @@ public class AircraftPatches
 	[HarmonyPrefix]
 	private static void EjectionSequence_Prefix(Aircraft __instance)
 	{
-		if (!ModAssets.i.ShipDefinitions.Contains(__instance.definition)) return;
+		if (!__instance.definition.IsShipDefinition()) return;
 		var ship = __instance;
 		var ab = ship.GetComponent<Airbase>();
 		
@@ -152,7 +150,7 @@ public class AircraftPatches
 	[HarmonyPrefix]
 	private static bool CheckRadarAlt_Prefix(Aircraft __instance)
 	{
-		if (!ModAssets.i.ShipDefinitions.Contains(__instance.definition)) return true;
+		if (!__instance.definition.IsShipDefinition()) return true;
 		
 		if (Physics.Linecast(__instance.transform.position, __instance.transform.position - Vector3.up * 10000f, out __instance.hit,
 			    (int)PhysicsLayers.StaticsMask | (int)PhysicsLayers.ShipsMask))
@@ -173,7 +171,7 @@ public class AircraftPatches
 	[HarmonyPrefix]
 	private static void OnStartClient_Prefix(Aircraft __instance, ref Vector3 __state)
 	{
-		if (!ModAssets.i.ShipDefinitions.Contains(__instance.definition)) return;
+		if (!__instance.definition.IsShipDefinition()) return;
 
 		__state = __instance.definition.spawnOffset;
 
@@ -202,7 +200,7 @@ public class AircraftPatches
 	[HarmonyPostfix]
 	private static void OnStartClient_Postfix(Aircraft __instance, ref Vector3 __state)
 	{
-		if (!ModAssets.i.ShipDefinitions.Contains(__instance.definition)) return;
+		if (!__instance.definition.IsShipDefinition()) return;
 
 		if (__instance.LocalSim)
 		{

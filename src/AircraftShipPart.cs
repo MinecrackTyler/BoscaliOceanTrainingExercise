@@ -16,6 +16,7 @@ public class AircraftShipPart : ShipPart
 	[SerializeField] private UnitPart physicsAttachedPart;
 	
 	private ShipPartBridge bridge;
+	private Aircraft aircraft;
 	private bool simplePhysics;
 	
 	public override void Awake()
@@ -34,8 +35,9 @@ public class AircraftShipPart : ShipPart
         originalDisplacement = displacement;
         leakToDisplacement = displacement;
         
-		bridge = parentUnit.GetComponent<ShipPartBridge>();
-        if (bridge != null)
+        aircraft = parentUnit as Aircraft;
+        
+        if (aircraft.TryGetShipBridge(out bridge))
         {
             bridge.parts.Add(this);
             damageControlActive = false;

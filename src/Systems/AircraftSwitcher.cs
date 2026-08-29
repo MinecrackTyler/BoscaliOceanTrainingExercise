@@ -1,5 +1,3 @@
-using System;
-using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
 using HarmonyLib;
 using Mirage;
@@ -8,7 +6,7 @@ using NuclearOption.SceneLoading;
 using UnityEngine;
 using Object = UnityEngine.Object;
 
-namespace NOComponentWIP;
+namespace NOComponentWIP.Systems;
 
 public class AircraftSwitcher : NetworkSceneSingleton<AircraftSwitcher>
 {

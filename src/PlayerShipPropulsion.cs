@@ -1,6 +1,7 @@
 using System;
 using UnityEngine;
-using NuclearOption;
+
+namespace NOComponentWIP;
 
 public class PlayerShipPropulsion : MonoBehaviour, IEngine
 {
