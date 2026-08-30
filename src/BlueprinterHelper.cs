@@ -1,48 +1,81 @@
 using System;
-using System.Collections;
-using System.Collections.Generic;
 using System.Reflection;
 using BepInEx.Bootstrap;
+using HarmonyLib;
 using UnityEngine;
 
 namespace NOComponentWIP;
 
 public static class BlueprinterHelper
 {
-	private static bool checkComplete = false;
-	private static Type loaderType;
-	private static Type registryType;
-	private static object registryInstance;
-	private static object instance;
+    private static bool initialized = false;
+    
+    private static bool patchingComplete = false;
 
-	public static bool IsPatchingComplete()
-	{
-		Setup();
-		var completeField = loaderType?.GetProperty("PatchingComplete", BindingFlags.Public | BindingFlags.Instance);
-		var complete = (bool)(completeField?.GetValue(instance) ?? false);
+    public static bool PatchingComplete
+    {
+        get
+        {
+            InitializeHarmonyHooks();
+            return patchingComplete;
+        }
+    }
 
-		return complete;
-	}
+    private static void InitializeHarmonyHooks()
+{
+    if (initialized)
+    {
+        return;
+    }
+    initialized = true;
+    
 
-	private static void Setup()
-	{
-		if (instance != null || checkComplete) return;
-		
-		if (Chainloader.PluginInfos.TryGetValue("com.nikkorap.blueprinter", out var pluginInfo))
-		{
-			instance = pluginInfo.Instance;
-			if (instance != null)
-			{
-				loaderType = instance.GetType();
-			}
-		}
-		
-		var registryField = loaderType?.GetField("bundleRegistry", BindingFlags.NonPublic | BindingFlags.Instance);
-		if (instance != null)
-		{
-			registryInstance = registryField?.GetValue(instance);
-		}
-		registryType = registryInstance?.GetType();
-		checkComplete = true;
-	}
+    if (!Chainloader.PluginInfos.TryGetValue("com.nikkorap.blueprinter", out var pluginInfo) || pluginInfo?.Instance == null)
+    {
+        return;
+    }
+    
+    Assembly blueprinterAssembly = pluginInfo.Instance.GetType().Assembly;
+
+    Harmony harmony = new Harmony("com.nocomponentwip.blueprinterhelper");
+
+    Type loadingScreenType = blueprinterAssembly.GetType("Blueprinter.BlueprinterLoadingScreen");
+
+    if (loadingScreenType != null)
+    {
+        MethodInfo destroyInstanceMethod = loadingScreenType.GetMethod("DestroyInstance", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static);
+
+        if (destroyInstanceMethod != null)
+        {
+            MethodInfo postfix = typeof(BlueprinterHelper).GetMethod(nameof(PatchingCompleted), BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static);
+            if (postfix != null)
+            {
+                harmony.Patch(destroyInstanceMethod, postfix: new HarmonyMethod(postfix));
+                Plugin.DebugLog("Successfully patched DestroyInstance");
+            }
+        }
+    }
+
+    Type issuePopupType = blueprinterAssembly.GetType("Blueprinter.BlueprinterIssuePopup");
+
+    if (issuePopupType != null)
+    {
+        MethodInfo showMethod = issuePopupType.GetMethod("Show", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static);
+
+        if (showMethod != null)
+        {
+            MethodInfo postfix = typeof(BlueprinterHelper).GetMethod(nameof(PatchingCompleted), BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static);
+            if (postfix != null)
+            {
+                harmony.Patch(showMethod, postfix: new HarmonyMethod(postfix));
+                Plugin.DebugLog("Successfully patched Show");
+            }
+        }
+    }
+}
+    
+    private static void PatchingCompleted()
+    {
+        patchingComplete = true;
+    }
 }

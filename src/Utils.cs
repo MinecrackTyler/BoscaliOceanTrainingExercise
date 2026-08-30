@@ -34,12 +34,12 @@ public static class UnitDefinitionExtensions
 
 public static class AircraftExtensions
 {
-	private static ConditionalWeakTable<Aircraft, ShipPartBridge> cache;
+	private static ConditionalWeakTable<Aircraft, ShipPartBridge> cache = new();
 
 	public static bool TryGetShipBridge(this Aircraft aircraft, out ShipPartBridge bridge)
 	{
 		if (cache.TryGetValue(aircraft, out bridge)) return true;
-		bridge = aircraft.GetComponent<ShipPartBridge>();
+		bridge = aircraft?.GetComponent<ShipPartBridge>();
 		if (bridge != null)
 		{
 			cache.Add(aircraft, bridge);

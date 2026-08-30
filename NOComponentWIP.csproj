@@ -100,6 +100,5 @@
 
   <ItemGroup>
     <None Remove="bote_1.5.1.nobp" />
-    <EmbeddedResource Include="bote_1.5.1.nobp" />
   </ItemGroup>
 </Project>

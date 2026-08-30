@@ -37,6 +37,12 @@ public class Plugin : BaseUnityPlugin
 	private ConfigEntry<bool> menuAutoReset;
 	public bool MenuAutoReset => menuAutoReset.Value;
 	
+	private ConfigEntry<bool> radarTargetIndicatorAircraft;
+	public bool RadarTargetIndicatorAircraft => radarTargetIndicatorAircraft.Value;
+	
+	private ConfigEntry<bool> radarTargetIndicatorMissile;
+	public bool RadarTargetIndicatorMissile => radarTargetIndicatorMissile.Value;
+	
 	private ConfigEntry<KeyboardShortcut> reloadUnitConfig;
 	public KeyboardShortcut ReloadUnitConfig => reloadUnitConfig.Value;
 	
@@ -52,6 +58,16 @@ public class Plugin : BaseUnityPlugin
 			"Radial Menu AutoReset",
 			true,
 			new ConfigDescription($"Auto reset to main radial menu."));
+		
+		radarTargetIndicatorAircraft = Config.Bind($"UI",
+			"Radar Target Indicator (Aircraft)",
+			true,
+			new ConfigDescription($"Show Icon if target is illuminated by onboard radar"));
+		
+		radarTargetIndicatorMissile = Config.Bind($"UI",
+			"Radar Target Indicator (Missile)",
+			false,
+			new ConfigDescription($"Show Icon if target is illuminated by onboard radar"));
 
 		reloadUnitConfig = Config.Bind($"Debug",
 			"Reload Unit Config",

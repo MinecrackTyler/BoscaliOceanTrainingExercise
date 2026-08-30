@@ -8,25 +8,64 @@ namespace NOComponentWIP;
 public class RadarHUDUnitMarker : HUDUnitMarker
 {
 	private Image radarImage;
+	private Radar radar;
 	
 	public RadarHUDUnitMarker(Unit unit, Image image) : base(unit, image)
 	{
-		if (unit is not Aircraft) return;
+		if (unit is not (Aircraft or Missile)) return;
 		radarImage = Object.Instantiate(CombatHUD.i.unitMarker).GetComponent<Image>();
 		radarImage.transform.SetParent(image.transform, false);
-		radarImage.transform.localPosition = new Vector3(-1f, -0.5f, 0);
+		radarImage.transform.localPosition = new Vector3(-0.5f, 0.5f, 0);
+		radarImage.transform.localScale = new Vector3(0.5f, 0.5f, 1f);
 		radarImage.sprite = ModAssets.i.RadarHUDIcon;
+		radar = CombatHUD.i.aircraft?.radar as Radar;
 	}
 
-	private new void UpdateHidden(bool gearExtended)
+	private void Update()
 	{
-		radarImage?.enabled = hidden;
+		if (radar == null)
+		{
+			radarImage?.enabled = false;
+			return;
+		}
+		radarImage?.enabled = !hidden && maximized && radar.detectedTargets.Contains(unit);
+		radarImage?.color = image.color;
 	}
 
-	[HarmonyPatch(nameof(HUDUnitMarker.UpdateHidden))]
-	private static void UpdateHidden_Postfix(HUDUnitMarker __instance, bool gearExtended)
+	[HarmonyPatch(nameof(HUDUnitMarker.UpdatePosition))]
+	[HarmonyPostfix]
+	private static void UpdatePosition_Postfix(HUDUnitMarker __instance)
 	{
 		if (__instance is not RadarHUDUnitMarker radarHUDUnitMarker) return;
-		radarHUDUnitMarker.UpdateHidden(gearExtended);
+		radarHUDUnitMarker.Update();
+	}
+}
+
+[HarmonyPatch(typeof(CombatHUD), nameof(CombatHUD.CreateMarker))]
+public static class CombatHUD_CreateMarkerPatch
+{
+	private static bool Prefix(CombatHUD __instance, PersistentID id)
+	{
+		if (!__instance.aircraft?.definition.IsShipDefinition() ?? true) return true;
+		
+		
+		bool valid = UnitRegistry.TryGetUnit(id, out var unit);
+		if (!valid) return true;
+
+		bool flag = unit is Aircraft && (Plugin.Instance?.RadarTargetIndicatorAircraft ?? false);
+		flag |= unit is Missile && (Plugin.Instance?.RadarTargetIndicatorMissile ?? false);
+		
+		if (!flag) return true;
+		
+		if (!(__instance.aircraft == null) && valid && __instance.aircraft != unit && !unit.disabled && !__instance.markerLookup.ContainsKey(unit) && !(unit is Scenery))
+		{
+			Image component = Object.Instantiate(__instance.unitMarker, __instance.iconLayer).GetComponent<Image>();
+			HUDUnitMarker hUDUnitMarker = new RadarHUDUnitMarker(unit, component);
+			__instance.markers.Add(hUDUnitMarker);
+			__instance.markerLookup.Add(unit, hUDUnitMarker);
+			hUDUnitMarker.AssessThreat(__instance.aircraft);
+		}
+
+		return false;
 	}
 }
