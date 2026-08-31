@@ -43,4 +43,15 @@ public static class TurretPatches
 			__instance.RegisterTargetDetector(__instance.attachedUnit.radar);
 		}
 	}
+	
+	[HarmonyPatch(nameof(Turret.SetTarget), typeof(PersistentID), typeof(byte))]
+	[HarmonyPostfix]
+	private static void SetTarget_Postfix(Turret __instance, PersistentID id)
+	{
+		if (__instance.attachedUnit.disabled || !__instance.attachedUnit.definition.IsShipDefinition() ||!__instance.aimSafetyWeapon) return;
+		if (!UnitRegistry.TryGetUnit(id, out var target)) return;
+
+		__instance.aimSafetyWeapon.SetTarget(target);
+		__instance.aimSolver.SetTarget(__instance.attachedUnit, target, __instance.aimSafetyWeapon.transform, __instance.aimSafetyWeapon.info);
+	}
 }
