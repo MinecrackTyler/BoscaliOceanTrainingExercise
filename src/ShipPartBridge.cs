@@ -157,6 +157,27 @@ public class ShipPartBridge : MonoBehaviour
 		}
 	}
 	
+	public void RaiseLcacToSurface()
+	{
+		var cushions = aircraft.GetComponentsInChildren<AirCushion>(true);
+		if (cushions.Length == 0) return;
+		
+		var requiredRise = 0f;
+		
+		foreach (var cushion in cushions)
+		{
+			if (cushion == null || cushion.castTransform == null || cushion.maxHeight <= 0f) continue;
+			var targetY = Datum.LocalSeaY + cushion.maxHeight * 0.5f;
+			requiredRise = Mathf.Max(requiredRise, targetY - cushion.castTransform.position.y);
+		}
+		
+		if (requiredRise <= 0f) return;
+		
+		var correctedPosition = aircraft.rb.position + Vector3.up * requiredRise;
+		aircraft.rb.position = correctedPosition;
+		aircraft.transform.position = correctedPosition;
+	}
+	
 	public void SetComplexPhysics()
 	{
 		var colliders = aircraft.GetComponentsInChildren<Collider>();

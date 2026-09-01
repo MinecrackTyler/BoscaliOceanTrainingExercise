@@ -16,28 +16,36 @@ public static class BlueprinterHelper
     {
         get
         {
-            InitializeHarmonyHooks();
+            if (!initialized)
+                InitializeHarmonyHooks();
+            
             return patchingComplete;
         }
     }
-
+    
+    public static void Initialize()
+    {
+        InitializeHarmonyHooks();
+    }
+    
     private static void InitializeHarmonyHooks()
 {
     if (initialized)
     {
         return;
     }
-    initialized = true;
-    
 
     if (!Chainloader.PluginInfos.TryGetValue("com.nikkorap.blueprinter", out var pluginInfo) || pluginInfo?.Instance == null)
     {
+        Plugin.DebugLog("Blueprinter instance not available yet");
         return;
     }
     
     Assembly blueprinterAssembly = pluginInfo.Instance.GetType().Assembly;
 
     Harmony harmony = new Harmony("com.nocomponentwip.blueprinterhelper");
+    
+    bool patchedAny = false;
 
     Type loadingScreenType = blueprinterAssembly.GetType("Blueprinter.BlueprinterLoadingScreen");
 
@@ -51,6 +59,7 @@ public static class BlueprinterHelper
             if (postfix != null)
             {
                 harmony.Patch(destroyInstanceMethod, postfix: new HarmonyMethod(postfix));
+                patchedAny = true;
                 Plugin.DebugLog("Successfully patched DestroyInstance");
             }
         }
@@ -68,14 +77,21 @@ public static class BlueprinterHelper
             if (postfix != null)
             {
                 harmony.Patch(showMethod, postfix: new HarmonyMethod(postfix));
+                patchedAny = true;
                 Plugin.DebugLog("Successfully patched Show");
             }
         }
     }
+    
+    initialized = patchedAny;
 }
     
     private static void PatchingCompleted()
     {
+        if (patchingComplete)
+            return;
+        
         patchingComplete = true;
+        Plugin.DebugLog("Blueprinter patching completed");
     }
 }

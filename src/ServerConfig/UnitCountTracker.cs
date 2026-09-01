@@ -32,6 +32,12 @@ public static class UnitCountTracker
 	
     private static readonly Dictionary<(ulong SteamID, string JsonKey), int> PlayerCounts = new();
     private static readonly Dictionary<(string Faction, string JsonKey), int> FactionCounts = new();
+    
+    private static readonly Dictionary<(ulong SteamID, string JsonKey), int> PendingPlayerCounts = new();
+    private static readonly Dictionary<(string Faction, string JsonKey), int> PendingFactionCounts = new();
+    
+    private static readonly Dictionary<(Unit Carrier, AircraftDefinition Definition), Queue<PendingAircraftDeployment>>
+        PendingAircraftDeployments = new();
 
     public static void RegisterListeners(NetworkServer Server, NetworkClient Client)
     {
@@ -60,6 +66,10 @@ public static class UnitCountTracker
         DeployedUnits.Clear();
         PlayerCounts.Clear();
         FactionCounts.Clear();
+        
+        PendingPlayerCounts.Clear();
+        PendingFactionCounts.Clear();
+        PendingAircraftDeployments.Clear();
     }
 
     public static void RegisterUnit(Unit unit, ulong ownerID)
@@ -193,6 +203,163 @@ public static class UnitCountTracker
             FactionCounts[fKey] = Mathf.Max(0, FactionCounts[fKey] - 1);
         }
     }
+    
+    private static void IncrementPendingCount(ulong steamId, string faction, string jsonKey)
+    {
+        var pKey = (steamId, jsonKey);
+        PendingPlayerCounts[pKey] = PendingPlayerCounts.GetValueOrDefault(pKey, 0) + 1;
+        
+        var fKey = (faction, jsonKey);
+        PendingFactionCounts[fKey] = PendingFactionCounts.GetValueOrDefault(fKey, 0) + 1;
+    }
+    
+    private static void DecrementPendingCount(ulong steamId, string faction, string jsonKey)
+    {
+        var pKey = (steamId, jsonKey);
+        
+        if (PendingPlayerCounts.TryGetValue(pKey, out int playerCount))
+        {
+            playerCount--;
+            
+            if (playerCount <= 0)
+                PendingPlayerCounts.Remove(pKey);
+            else
+                PendingPlayerCounts[pKey] = playerCount;
+        }
+        
+        var fKey = (faction, jsonKey);
+        
+        if (PendingFactionCounts.TryGetValue(fKey, out int factionCount))
+        {
+            factionCount--;
+            
+            if (factionCount <= 0)
+                PendingFactionCounts.Remove(fKey);
+            else
+                PendingFactionCounts[fKey] = factionCount;
+        }
+    }
+    
+    public static bool CanDeploy(string jsonKey, Aircraft aircraft)
+    {
+        if (!UnitConfig.UnitLimits()) return true;
+        
+        var playerMax = UnitConfig.PlayerMax(jsonKey);
+        var factionMax = UnitConfig.FactionMax(jsonKey);
+        
+        if (playerMax < 0 && factionMax < 0) return true;
+        
+        var steamId = aircraft?.Player?.SteamID ?? 0UL;
+        var factionName = aircraft?.NetworkHQ?.faction?.factionName;
+        
+        if (playerMax >= 0)
+        {
+            if (steamId == 0UL) return false;
+            var active = GetPlayerCount(jsonKey, steamId);
+            var pending = GetPendingPlayerCount(jsonKey, steamId);
+            if (active + pending >= playerMax) return false;
+        }
+        
+        if (factionMax >= 0)
+        {
+            if (string.IsNullOrEmpty(factionName)) return false;
+            var active = GetFactionCount(jsonKey, factionName);
+            var pending = GetPendingFactionCount(jsonKey, factionName);
+            if (active + pending >= factionMax) return false;
+        }
+        
+        return true;
+    }
+    
+    public static void RegisterPendingAircraft(Unit carrier, AircraftDefinition definition, ulong ownerID)
+    {
+        if (carrier == null || definition == null || ownerID == 0) return;
+        
+        var faction = carrier.NetworkHQ?.faction?.factionName ?? "Unassigned";
+        var jsonKey = definition.jsonKey;
+        var key = (carrier, definition);
+        
+        if (!PendingAircraftDeployments.TryGetValue(key, out var queue))
+        {
+            queue = new Queue<PendingAircraftDeployment>();
+            PendingAircraftDeployments.Add(key, queue);
+        }
+        queue.Enqueue(new PendingAircraftDeployment(ownerID, faction));
+        IncrementPendingCount(ownerID, faction, jsonKey);
+    }
+    
+    public static void CancelPendingAircraft(Unit carrier, AircraftDefinition definition, ulong ownerID)
+    {
+        if (carrier == null || definition == null || ownerID == 0) return;
+        
+        var key = (carrier, definition);
+        
+        if (!PendingAircraftDeployments.TryGetValue(key, out var queue) || queue.Count == 0) return;
+        
+        var entries = queue.ToArray();
+        var removeIndex = -1;
+        
+        for (int i = entries.Length - 1; i >= 0; i--)
+        {
+            if (entries[i].OwnerID == ownerID)
+            {
+                removeIndex = i;
+                break;
+            }
+        }
+        
+        if (removeIndex < 0) return;
+        PendingAircraftDeployment removed = entries[removeIndex];
+        DecrementPendingCount(removed.OwnerID, removed.Faction, definition.jsonKey);
+        queue.Clear();
+        
+        for (int i = 0; i < entries.Length; i++)
+        {
+            if (i != removeIndex)
+            {
+                queue.Enqueue(entries[i]);
+            }
+        }
+        
+        if (queue.Count == 0)
+        {
+            PendingAircraftDeployments.Remove(key);
+        }
+    }
+    
+    public static bool TryConsumePendingAircraft(Unit carrier, AircraftDefinition definition, out ulong ownerID)
+    {
+        ownerID = 0;
+        
+        if (carrier == null || definition == null) return false;
+        
+        var key = (carrier, definition);
+        
+        if (!PendingAircraftDeployments.TryGetValue(key, out var queue) || queue.Count == 0) return false;
+        
+        PendingAircraftDeployment pending = queue.Dequeue();
+        ownerID = pending.OwnerID;
+        DecrementPendingCount(pending.OwnerID, pending.Faction, definition.jsonKey);
+        
+        if (queue.Count == 0)
+        {
+            PendingAircraftDeployments.Remove(key);
+        }
+        
+        return true;
+    }
+    
+    private readonly struct PendingAircraftDeployment
+    {
+        public readonly ulong OwnerID;
+        public readonly string Faction;
+        
+        public PendingAircraftDeployment(ulong ownerID, string faction)
+        {
+            OwnerID = ownerID;
+            Faction = faction;
+        }
+    }
 
     public static int GetPlayerCount(string jsonKey, ulong steamID)
     {
@@ -203,5 +370,18 @@ public static class UnitCountTracker
     {
         if (string.IsNullOrEmpty(factionName)) return 0;
         return FactionCounts.GetValueOrDefault((factionName, jsonKey), 0);
+    }
+    
+    private static int GetPendingPlayerCount(string jsonKey, ulong steamID)
+    {
+        return PendingPlayerCounts.GetValueOrDefault((steamID, jsonKey), 0);
+    }
+    
+    private static int GetPendingFactionCount(string jsonKey, string factionName)
+    {
+        if (string.IsNullOrEmpty(factionName))
+            return 0;
+        
+        return PendingFactionCounts.GetValueOrDefault((factionName, jsonKey), 0);
     }
 }
