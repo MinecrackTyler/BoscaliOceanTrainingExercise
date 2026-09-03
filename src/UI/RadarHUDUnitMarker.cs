@@ -19,6 +19,7 @@ public class RadarHUDUnitMarker : HUDUnitMarker
 		radarImage.transform.localScale = new Vector3(0.5f, 0.5f, 1f);
 		radarImage.sprite = ModAssets.i.RadarHUDIcon;
 		radar = CombatHUD.i.aircraft?.radar as Radar;
+		radarImage.enabled = false;
 	}
 
 	private void Update()
