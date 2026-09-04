@@ -100,8 +100,10 @@ public class Mod_Input : BaseUnityPlugin
 	}
 	
 	// --- INPUT HANDLING ---
+
+	private static bool init = false;
 	
-	private static List<int> catIDs = new List<int>();
+	private static HashSet<int> catIDs = new HashSet<int>();
 	private static int newMapID = -1;
 
 	private static readonly HashSet<int> ValidIDs = new();
@@ -129,6 +131,8 @@ public class Mod_Input : BaseUnityPlugin
 	
 	private static void SetupActions(InputManager_Base manager)
 	{
+		if (init) return;
+		init = true;
 		var actions = manager?.userData?.actions;
 		if (actions == null) return;
 		var categories = manager?.userData?.actionCategories;
