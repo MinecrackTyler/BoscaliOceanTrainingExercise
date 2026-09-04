@@ -95,15 +95,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Remove="bote_1.5.0.nobp" />
+    <None Remove="bote_1.5.3.nobp" />
+    <EmbeddedResource Include="bote_1.5.3.nobp" />
   </ItemGroup>
-
-  <ItemGroup>
-    <None Remove="bote_1.5.1.nobp" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <None Remove="bote_1.5.2.nobp" />
-    <EmbeddedResource Include="bote_1.5.2.nobp" />
-  </ItemGroup>
+  
 </Project>
