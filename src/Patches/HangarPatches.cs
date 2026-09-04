@@ -65,4 +65,19 @@ public static class HangarPatches
         
 		return false;
 	}
+	
+	// Postfix to track deployed planes towards limits, because prefix can exit early at
+	// ModAssets.i.ShipDefinitions.Contains and thus not run tracking implemented later there
+	[HarmonyPatch(nameof(Hangar.SpawnAircraft))]
+	[HarmonyPostfix]
+	private static void SpawnAircraft_Postfix(Hangar __instance, AircraftDefinition definition)
+	{
+		var spawnedAircraft = __instance.spawnedObject?.GetComponent<Aircraft>();
+		if (spawnedAircraft == null) return;
+		
+		if (UnitCountTracker.TryConsumePendingAircraft(__instance.attachedUnit, definition, out ulong ownerID))
+		{
+			UnitCountTracker.RegisterUnit(spawnedAircraft, ownerID);
+		}
+	}
 }

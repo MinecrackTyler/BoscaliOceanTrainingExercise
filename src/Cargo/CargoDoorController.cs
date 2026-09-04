@@ -66,9 +66,14 @@ namespace NOComponentWIP
                 cushion?.maxHeight = 1.5f;
                 bridge?.deploymentManager?.Safety = false;
             }
-            else if (!isProcessing && (targetState == LandingGear.GearState.Extending || targetState == LandingGear.GearState.Retracting))
+            else
             {
-                ProcessMovement().Forget();
+                bridge?.deploymentManager?.Safety = true;
+                
+                if (!isProcessing)
+                {
+                    ProcessMovement().Forget();
+                }
             }
         }
         

@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using Mirage;
+using NOComponentWIP.ServerConfig;
 using NuclearOption.Networking;
 using NuclearOption.SavedMission;
 using UnityEngine;
@@ -19,6 +20,8 @@ public class FOBManager : NetworkBehaviour
     
     private GameObject fobUI;
     private Coroutine fobCoroutine;
+    
+    private const int MaxConstructionPoints = 160;
     
 	[ClientRpc(target = RpcTarget.Owner)]
 	public void DeployFOB()
@@ -50,7 +53,7 @@ public class FOBManager : NetworkBehaviour
         fobUI = Instantiate(ModAssets.i.FOBEditorUI, canvas.transform);
         var uiController = fobUI.GetComponent<FOBUIController>();
         
-        uiController.Initialize(this, aircraft, aircraft.rb.position, availableFOBUnits,160);
+        uiController.Initialize(this, aircraft, aircraft.rb.position, availableFOBUnits, MaxConstructionPoints);
         
         yield return new WaitUntil(() => !BuildingFob || aircraft.Networkdisabled); //will be changed to check when fob is done
         
@@ -115,13 +118,20 @@ public class FOBManager : NetworkBehaviour
             Plugin.Logger.LogError("Network array mismatch on CmdFinalizeFOB! Aborting spawn.");
             return;
         }
-
-        Airbase airbase = null;
         
-        if (spawnAirbase)
-        {
-            SetupAirbase(center, out airbase);
-        }
+        var player = aircraft?.Player;
+        if (player == null) return;
+        
+        var localCounts = new Dictionary<FOBUnit, int>();
+        var spawnedBuildings = new List<Building>();
+        
+        bool centerSpawned = false;
+        Vector3 validatedCenter = center;
+        
+        float remainingAllocation = player.Allocation;
+        float totalAllocationCost = 0f;
+        
+        int usedConstructionPoints = 0;
         
         for (int i = 0; i < indices.Length; i++)
         {
@@ -131,13 +141,58 @@ public class FOBManager : NetworkBehaviour
             var data = availableFOBUnits[dataIndex];
             if (data == null) continue;
             
-            var gp = new GlobalPosition(positions[i]);
-            var spawnedObj = data.SpawnUnit(gp.ToLocalPosition(), rotations[i], Vector3.zero, aircraft, true, out var spawned);
+            var localCount = localCounts.GetValueOrDefault(data, 0);
             
-            if (spawned && spawnedObj != null && spawnAirbase && airbase != null)
+            if (data.maxUnits >= 0 && localCount >= data.maxUnits) continue;
+            
+            if (usedConstructionPoints + data.pointCost > MaxConstructionPoints) continue;
+            
+            var allocationCost = 0f;
+            
+            if (UnitConfig.UnitEconomy())
             {
-                var building = spawnedObj.GetComponent<Building>();
-                if (building != null)
+                allocationCost = Mathf.Max(0f, UnitConfig.UnitCost(data.JsonKey));
+                if (allocationCost > remainingAllocation) continue;
+            }
+            
+            var gp = new GlobalPosition(positions[i]);
+            var spawnedObj = data.SpawnUnit(gp.ToLocalPosition(), rotations[i], Vector3.zero, aircraft, false, out var spawned);
+            
+            if (!spawned || spawnedObj == null) continue;
+            
+            localCounts[data] = localCount + 1;
+            usedConstructionPoints += data.pointCost;
+            
+            if (UnitConfig.UnitEconomy())
+            {
+                remainingAllocation -= allocationCost;
+                totalAllocationCost += allocationCost;
+            }
+            
+            if (data.IsAirbaseCenter && !centerSpawned)
+            {
+                centerSpawned = true;
+                validatedCenter = positions[i];
+            }
+            
+            if (spawnedObj is Building building)
+            {
+                spawnedBuildings.Add(building);
+            }
+        }
+        
+        if (totalAllocationCost > 0f)
+        {
+            player.AddAllocation(-totalAllocationCost);
+        }
+        
+        if (spawnAirbase && centerSpawned)
+        {
+            SetupAirbase(validatedCenter, out var airbase);
+            
+            if (airbase != null)
+            {
+                foreach (var building in spawnedBuildings)
                 {
                     building.SetAirbase(airbase);
                 }
@@ -159,9 +214,20 @@ public class FOBManager : NetworkBehaviour
             Destroy(go);
             return;
         }
-        string playerName = aircraft.Player.GetDisplayName(PlayerNameContext.ChatOrLeaderboard);
-        string uname = $"FOB_{playerName}_{Time.time}";
-        var displayName = $"FOB: {playerName}";
+        
+        var player = aircraft.Player;
+        if (player == null)
+        {
+            Destroy(go);
+            airbase = null;
+            return;
+        }
+        
+        var ownerRef = player.PlayerRef;
+        var ownerSteamId = player.SteamID;
+        
+        string uname = $"FOB_{ownerSteamId}_{Time.time}";
+        const string displayName = "FOB";
         var factionName = aircraft.NetworkHQ.faction.factionName;
         
         var globalCenter = new GlobalPosition(center.x, center.y + 10f, center.z);
@@ -182,15 +248,21 @@ public class FOBManager : NetworkBehaviour
         MissionManager.CurrentMission.airbases.Add(saved);
         NetworkManagerNuclearOption.i.ServerObjectManager.Spawn(airbase.Identity);
         
+        // Resolve name right away on non-dedicated server host
+        if (!GameManager.IsHeadless)
+        {
+            FOBNameResolver.Resolve(saved, player);
+        }
+        
         // Serialises CurrentMission state from the new additions for future joining clients to receive
         RefreshLateJoinMission();
         
         // Sync with current live clients
-        RpcFinalizeFOB(airbase, globalCenter.AsVector3(), displayName, factionName);
+        RpcFinalizeFOB(airbase, globalCenter.AsVector3(), ownerRef, factionName);
     }
 
     [ClientRpc(excludeHost = true)] // Host already has the new SavedAirbase from its SetupCustomAirbase()
-    private void RpcFinalizeFOB(Airbase airbase, Vector3 globalCenter, string displayName, string faction)
+    private void RpcFinalizeFOB(Airbase airbase, Vector3 globalCenter, PlayerRef ownerRef, string faction)
     {
         if (airbase == null) return;
         
@@ -209,8 +281,9 @@ public class FOBManager : NetworkBehaviour
             mission.airbases.Add(saved);
         }
         
-        ApplySavedAirbaseState(saved, airbase.NetworknetworkUniqueName, displayName, faction, center);
+        ApplySavedAirbaseState(saved, airbase.NetworknetworkUniqueName, "FOB", faction, center);
         airbase.SetupCustomAirbase(saved);
+        FOBNameResolver.Resolve(saved, ownerRef.Player);
     }
     
     private static void RefreshLateJoinMission()

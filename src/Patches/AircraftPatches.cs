@@ -35,6 +35,8 @@ public class AircraftPatches
 	{
 		if (!__instance.TryGetShipBridge(out var bridge)) return true;
 		
+		bridge.RaiseLcacToSurface();
+		
 		ColorLog<Unit>.Info("Setting " + __instance.unitName + " physics to Complex");
 		foreach (UnitPart item in __instance.partLookup)
 		{

@@ -37,7 +37,7 @@ public abstract class DeployableUnit : ScriptableObject
 	{
 		if (!overrideBlock)
 		{
-			if (!UnitConfig.UnitAllowed(JsonKey) || !UnitConfig.LimitCheck(JsonKey))
+			if (!UnitConfig.UnitAllowed(JsonKey) || !UnitCountTracker.CanDeploy(JsonKey, aircraft))
 			{
 				spawned = false;
 				return null;
@@ -49,7 +49,7 @@ public abstract class DeployableUnit : ScriptableObject
 		if (spawned && unit != null)
 		{
 			var id = aircraft?.Player.SteamID ?? 0;
-			UnitCountTracker.RegisterUnit(unit, id);
+			UnitCountTracker.RegisterUnit(unit, id, aircraft?.NetworkHQ);
 		}
 		
 		return unit;
@@ -110,13 +110,21 @@ public class DeployableAircraft : DeployableUnit
 		}
 
 		int randomLivery = unitDefinition.aircraftParameters.GetRandomLiveryForFaction(aircraft.NetworkHQ.faction);
+		
+		var ownerID = aircraft?.Player?.SteamID ?? 0;
+		UnitCountTracker.RegisterPendingAircraft(aircraft, unitDefinition, ownerID);
+		
 		var result = airbase.TrySpawnAircraft(null, unitDefinition, new LiveryKey(randomLivery), loadout, fuelLevel);
 		if (result.Allowed)
 		{
 			spawned = true;
 			aircraft.NetworkHQ.AddSupplyUnit(unitDefinition, 1);
 		}
-
+		else
+		{
+			UnitCountTracker.CancelPendingAircraft(aircraft, unitDefinition, ownerID);
+		}
+		
 		return null;
 	}
 }
