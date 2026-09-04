@@ -30,6 +30,8 @@ public class UnitConfigEntry
 public static class UnitConfig
 {
 	private static readonly string ConfigPath = Path.Combine(Paths.ConfigPath, "BOTE/UnitConfig.jsonc");
+	
+	public static event Action<string> CountsUpdated;
 
 	public static UnitConfigData LocalConfigData { get; set; } = new();
 	public static UnitConfigData ActiveConfigData { get; set; } = new();
@@ -74,6 +76,7 @@ public static class UnitConfig
 		{
 			unit.CurrentPlayerCount = playerCount;
 			unit.CurrentFactionCount = factionCount;
+			CountsUpdated?.Invoke(key);
 		}
 	}
 

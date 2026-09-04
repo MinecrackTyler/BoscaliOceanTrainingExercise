@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using Mirage;
+using NOComponentWIP.ServerConfig;
 using NuclearOption.ModScripts.Impl;
 using NuclearOption.Networking;
 using TMPro;
@@ -68,6 +69,7 @@ public class FOBUIController : MonoBehaviour
 		cancelButton.onClick.AddListener(CancelFOB);
 
 		aircraft.onDisableUnit += _ => Close();
+		UnitConfig.CountsUpdated += OnCountsUpdated;
 		
 		foreach (Transform child in scrollArea) Destroy(child.gameObject);
 
@@ -78,9 +80,9 @@ public class FOBUIController : MonoBehaviour
 			rowScript.Setup(unit, this);
 			uiRows.Add(rowScript);
 		}
-
-		RefreshRows();
+		
 		RefreshBudget();
+		RefreshRows();
 		buildCamera = CameraStateManager.i.mainCamera;
 		CameraStateManager.i.SwitchState(CameraStateManager.i.freeState);
 	}
@@ -90,27 +92,16 @@ public class FOBUIController : MonoBehaviour
 		foreach (var row in uiRows)
 		{
 			FOBUnit data = row.FOBUnit;
-
-			if (data.maxUnits == -1)
-			{
-				row.Disable(false);
-				continue;
-			}
+			if (data == null) continue;
 			
-			int currentCount = placedUnits.Count(p => p.data == data);
-			bool max = currentCount >= data.maxUnits;
-			
-			row.Disable(max);
+			var placedCount = GetPlacedCount(data);
+			row.Refresh(placedCount, CanPlaceUnit(data));
 		}
 	}
 
 	public void SelectUnit(FOBUnit unit)
 	{
-		if (unit.maxUnits != -1)
-		{
-			int count = placedUnits.Count(p => p.data == unit);
-			if (count >= unit.maxUnits) return;
-		}
+		if (!CanPlaceUnit(unit)) return;
 		
 		if (activeUnit != null) Destroy(activeUnit);
 
@@ -172,7 +163,8 @@ public class FOBUIController : MonoBehaviour
 				float dist = Vector3.Distance(finalPoint, centerPos.ToLocalPosition());
 				bool inRange = dist <= buildRadius;
 				bool canAfford = (currentPoints + activeData.pointCost) <= maxPoints;
-				bool isValid = inRange && canAfford;
+				bool withinLimits = CanPlaceUnit(activeData);
+				bool isValid = inRange && canAfford && withinLimits;
 			
 				activeUnit.transform.position = finalPoint + Vector3.up * (verticalOffset + activeData.UnitDefinition.spawnOffset.y);
 
@@ -240,6 +232,8 @@ public class FOBUIController : MonoBehaviour
 	
 	private void PlaceUnit()
 	{
+		if (activeData == null || !CanPlaceUnit(activeData)) return;
+		
 		bool makeCenter = false;
 		if (activeData.IsAirbaseCenter && !spawnAirbase)
 		{
@@ -308,11 +302,75 @@ public class FOBUIController : MonoBehaviour
 		
 		return heldDuration <= maxClickDuration;
 	}
-
+	
+	private int GetPlacedCount(FOBUnit unit)
+	{
+		return placedUnits.Count(placed => placed.data == unit);
+	}
+	
+	private bool CanPlaceUnit(FOBUnit unit)
+	{
+		if (unit == null) return false;
+		
+		var key = unit.JsonKey;
+		if (!UnitConfig.UnitAllowed(key)) return false;
+		
+		var placedCount = GetPlacedCount(unit);
+		
+		if (unit.maxUnits >= 0 && placedCount >= unit.maxUnits) return false;
+		
+		if (UnitConfig.UnitLimits())
+		{
+			var playerMax = UnitConfig.PlayerMax(key);
+			var factionMax = UnitConfig.FactionMax(key);
+			var playerCount = Mathf.Max(0, UnitConfig.GetCurrentPlayerCount(key)) + placedCount;
+			var factionCount = Mathf.Max(0, UnitConfig.GetCurrentFactionCount(key)) + placedCount;
+			
+			if (playerMax >= 0 && playerCount >= playerMax) return false;
+			if (factionMax >= 0 && factionCount >= factionMax) return false;
+		}
+		
+		if (UnitConfig.UnitEconomy())
+		{
+			var player = aircraft?.Player;
+			if (player == null) return false;
+			
+			var projectedCost = GetCurrentCost() + UnitConfig.UnitCost(key);
+			
+			if (projectedCost > player.Allocation) return false;
+		}
+		
+		return true;
+	}
+	
+	private float GetCurrentCost()
+	{
+		if (!UnitConfig.UnitEconomy()) return 0f;
+		
+		var total = 0f;
+		
+		foreach (var placed in placedUnits)
+		{
+			if (placed?.data == null) continue;
+			total += UnitConfig.UnitCost(placed.data.JsonKey);
+		}
+		
+		return total;
+	}
+	
 	private void RefreshBudget()
 	{
-		pointsText.text = $"CONSTRUCTION BUDGET: {currentPoints} / {maxPoints}";
-		pointsFillBar.fillAmount = (float)currentPoints / maxPoints;
+		if (UnitConfig.UnitEconomy())
+		{
+			var allocationCost = GetCurrentCost();
+			pointsText.text = $"CONSTRUCTION BUDGET: {currentPoints} / {maxPoints} | COST: {UnitConverter.ValueReading(allocationCost)}";
+		}
+		else
+		{
+			pointsText.text = $"CONSTRUCTION BUDGET: {currentPoints} / {maxPoints}";
+		}
+		
+		pointsFillBar.fillAmount = maxPoints > 0 ? (float)currentPoints / maxPoints : 0f;
 	}
 
 	private void FinalizeFOB()
@@ -329,6 +387,11 @@ public class FOBUIController : MonoBehaviour
 		Close();
 	}
 	
+	private void OnCountsUpdated(string jsonKey)
+	{
+		RefreshRows();
+	}
+	
 	private void Close()
 	{
 		cancelButton?.onClick.RemoveAllListeners();
@@ -340,6 +403,7 @@ public class FOBUIController : MonoBehaviour
 
 	private void OnDestroy()
 	{
+		UnitConfig.CountsUpdated -= OnCountsUpdated;
 		Close();
 	}
 }

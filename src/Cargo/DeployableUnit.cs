@@ -49,7 +49,7 @@ public abstract class DeployableUnit : ScriptableObject
 		if (spawned && unit != null)
 		{
 			var id = aircraft?.Player.SteamID ?? 0;
-			UnitCountTracker.RegisterUnit(unit, id);
+			UnitCountTracker.RegisterUnit(unit, id, aircraft?.NetworkHQ);
 		}
 		
 		return unit;

@@ -72,13 +72,16 @@ public static class UnitCountTracker
         PendingAircraftDeployments.Clear();
     }
 
-    public static void RegisterUnit(Unit unit, ulong ownerID)
+    public static void RegisterUnit(Unit unit, ulong ownerID, FactionHQ deploymentHq = null)
     {
         if (unit == null || ownerID == 0 || unit.persistentID.NotValid) return;
 
         uint netId = unit.persistentID.Id;
         string jsonKey = unit.definition.jsonKey;
-        string factionName = unit.NetworkHQ?.faction?.factionName ?? "Unassigned";
+        
+        // Scenery objects in FOB builder don't have an assigned faction, this allows it to get one from the
+        // owner that deployed it instead
+        string factionName = deploymentHq?.faction?.factionName ?? unit.NetworkHQ?.faction?.factionName ?? "Unassigned";
         
         if (DeployedUnits.ContainsKey(netId)) return;
         

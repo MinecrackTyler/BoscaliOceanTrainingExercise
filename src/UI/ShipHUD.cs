@@ -75,15 +75,20 @@ public class ShipHUD : HUDApp
 
         if (hasFobSystem)
         {
-            if (fobManager.hasFob)
-            {
-                fobStatus.text = "FOB: READY";
-                fobStatus.color = selectedColor;
-            }
-            else
+            if (!fobManager.hasFob)
             {
                 fobStatus.text = "FOB: EMPTY";
                 fobStatus.color = alertColor;
+            }
+            else if (manager == null || manager.Safety)
+            {
+                fobStatus.text = "FOB: OPEN BAY DOOR";
+                fobStatus.color = idleColor;
+            }
+            else
+            {
+                fobStatus.text = "FOB: READY";
+                fobStatus.color = selectedColor;
             }
         }
         
@@ -124,6 +129,8 @@ public class ShipHUD : HUDApp
             UpdatePool(1); 
             pool[0].text = "EMPTY";
             pool[0].color = alertColor;
+            
+            SetLimitDisplayVisible(false);
         
             contentParent.anchoredPosition = Vector2.zero;
             return;
@@ -136,6 +143,8 @@ public class ShipHUD : HUDApp
         int index = 0;
         int visualSelectedIndex = 0;
         DeployableUnit selectedUnit = manager.GetSelectedUnit();
+        
+        SetLimitDisplayVisible(true);
 
         foreach (var entry in manager.UnitManifest)
         {
@@ -224,6 +233,15 @@ public class ShipHUD : HUDApp
             factionLimitText.text = $"FACT: N/A";
             factionLimitText.color = selectedColor;
         }
+    }
+    
+    private void SetLimitDisplayVisible(bool visible)
+    {
+        if (playerLimitText != null)
+            playerLimitText.gameObject.SetActive(visible);
+        
+        if (factionLimitText != null)
+            factionLimitText.gameObject.SetActive(visible);
     }
 
     private void DisembarkCheck()
