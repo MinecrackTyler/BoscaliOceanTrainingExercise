@@ -15,8 +15,7 @@ public class RadarHUDUnitMarker : HUDUnitMarker
 		if (unit is not (Aircraft or Missile)) return;
 		radarImage = Object.Instantiate(CombatHUD.i.unitMarker).GetComponent<Image>();
 		radarImage.transform.SetParent(image.transform, false);
-		radarImage.transform.localPosition = new Vector3(-0.5f, 0.5f, 0);
-		radarImage.transform.localScale = new Vector3(0.5f, 0.5f, 1f);
+		radarImage.transform.localScale = new Vector3(1.1f, 1.1f, 1.1f);
 		radarImage.sprite = ModAssets.i.RadarHUDIcon;
 		radar = CombatHUD.i.aircraft?.radar as Radar;
 		radarImage.enabled = false;
