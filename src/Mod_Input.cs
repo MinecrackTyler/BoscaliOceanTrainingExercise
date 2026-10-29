@@ -50,6 +50,7 @@ public class Mod_Input : BaseUnityPlugin
 		("Deploy FOB", KeyboardKeyCode.None),
 		("Next Camera", KeyboardKeyCode.None),
 		("Previous Camera", KeyboardKeyCode.None),
+		("Horn", KeyboardKeyCode.None)
 	];
 
 	private static readonly List<string> customAxis =
