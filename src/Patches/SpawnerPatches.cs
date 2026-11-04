@@ -13,6 +13,8 @@ public static class SpawnerPatches
     [HarmonyPrefix]
     public static bool SpawnAircraft_Prefix(Spawner __instance, ref Aircraft __result, Player player, GameObject prefab, Loadout loadout, float fuelLevel, LiveryKey livery, GlobalPosition globalPosition, Quaternion rotation, Vector3 startingVel, Hangar spawningHangar, FactionHQ HQ, string uniqueName, float skill, float bravery)
     {
+        if (HQ == null)
+            player = null;
         PlayerRef networkPlayerRef = player?.PlayerRef ?? PlayerRef.Invalid;
         Vector3 position = globalPosition.ToLocalPosition();
         GameObject gameObject = Object.Instantiate(prefab, position, rotation);
@@ -27,6 +29,8 @@ public static class SpawnerPatches
         component.Networkloadout = loadout;
         component.NetworkfuelLevel = Mathf.Clamp(fuelLevel, 0f, 1f);
         component.skill = skill;
+        if (HQ != null)
+            component.skill *= HQ.airSkillMultiplier;
         component.bravery = bravery;
         component.SetLiveryKey(livery);
         component.NetworkplayerRef = networkPlayerRef;
