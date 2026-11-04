@@ -10,7 +10,7 @@ public static class RearmMissionControllerPatches
 	public static bool TryGetRearmer_Prefix(RearmMissionController __instance, Unit requestingUnit, out Rearmer bestRearmer, ref bool __result)
 	{
 		bestRearmer = null;
-		if (requestingUnit.radarAlt > 1f || (requestingUnit.speed > 1f && !(requestingUnit is Ship || ModAssets.i.ShipDefinitions.Contains(requestingUnit.definition as AircraftDefinition))))
+		if (requestingUnit.radarAlt > 1f || (requestingUnit.speed > 1f && !(requestingUnit is Ship || requestingUnit.definition.IsShipDefinition())))
 		{
 			__result = false;
 			return false;

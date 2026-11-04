@@ -12,7 +12,7 @@ public static class HangarPatches
 	[HarmonyPrefix]
 	private static bool SpawnAircraft_Prefix(Hangar __instance, Player player, AircraftDefinition definition, Loadout loadout, float fuelLevel, LiveryKey livery)
 	{
-		if (!ModAssets.i.ShipDefinitions.Contains(definition)) return true;
+		if (!definition.IsShipDefinition()) return true;
 
 		bool attachedUnit = __instance.attachedUnit is Ship or Aircraft;
 		bool isDock = __instance.attachedUnit != null && __instance.attachedUnit.definition == ModAssets.i.dockDef;

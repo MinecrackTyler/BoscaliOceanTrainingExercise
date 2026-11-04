@@ -1,5 +1,7 @@
 using System.Collections.Generic;
+using System.Reflection.Emit;
 using HarmonyLib;
+using Mirage.Collections;
 using NuclearOption.SavedMission;
 
 namespace BoscaliOceanTrainingExercise.Patches;
@@ -8,73 +10,46 @@ namespace BoscaliOceanTrainingExercise.Patches;
 public static class FactionHQPatches
 {
     [HarmonyPatch(nameof(FactionHQ.DeployAIAircraft))]
-    [HarmonyPrefix]
-    private static bool DeployAIAircraft_Prefix(FactionHQ __instance)
+    [HarmonyTranspiler]
+    private static IEnumerable<CodeInstruction> DeployAIAircraft_Transpiler(IEnumerable<CodeInstruction> instructions, ILGenerator il)
     {
-        var hq = __instance;
+        CodeMatcher matcher = new CodeMatcher(instructions, il);
         
-        int count = hq.factionPlayers.Count;
-        int num = 0;
-        foreach (FactionHQ allHQ in FactionRegistry.GetAllHQs())
-        {
-            if (allHQ != hq)
-            {
-                num += allHQ.GetPlayers(false).Count;
-            }
-        }
+        matcher.MatchForward(false,
+            new CodeMatch(OpCodes.Callvirt, AccessTools.Method(typeof(SyncIDictionary<AircraftDefinition, FactionHQ.RuntimeSupply>), nameof(SyncIDictionary<,>.TryGetValue)))
+        );
 
-        float num2 = hq.AIAircraftLimit + num * hq.addAIPerEnemyPlayer - count * hq.reduceAIPerFriendlyPlayer;
-        
-        if (hq.activeAIAircraft.Count >= num2)
+        if (matcher.IsInvalid)
         {
-            return false;
-        }
-
-        List<AircraftDefinition> aircraft = Encyclopedia.i.aircraft;
-        
-        for (int i = 0; i < aircraft.Count; i++)
-        {
-            int index = UnityEngine.Random.Range(i, aircraft.Count);
-            AircraftDefinition value = aircraft[i];
-            aircraft[i] = aircraft[index];
-            aircraft[index] = value;
+            Plugin.Logger.LogError("Failed to find match in FactionHQ.DeployAIAircraft");
+            return matcher.InstructionEnumeration();
         }
         
-        int num3 = hq.reserveAirframes + count * hq.extraReservesPerPlayer;
-        foreach (AircraftDefinition item2 in aircraft)
+        matcher.Advance(1);
+        Label continueLabel = (Label)matcher.Instruction.operand;
+        
+        matcher.Start()
+               .MatchForward(false,
+                   new CodeMatch(OpCodes.Call, AccessTools.Method(typeof(List<AircraftDefinition>.Enumerator), "get_Current"))
+               );
+
+        if (matcher.IsInvalid)
         {
-            if (item2.IsShipDefinition()) continue;
-            
-            if (!hq.AircraftSupply.TryGetValue(item2, out var value2) || value2.Count <= num3)
-            {
-                continue;
-            }
-
-            foreach (var item3 in hq.airbasesSorted)
-            {
-                Airbase item = item3.airbase;
-                if (item != null && item.CanSpawnAircraft(item2))
-                {
-                    Loadout loadout = null;
-                    float fuelLevel = item2.aircraftParameters.DefaultFuelLevel;
-                    
-                    StandardLoadout randomStandardLoadout = item2.aircraftParameters.GetRandomStandardLoadout(item2, hq);
-                    if (randomStandardLoadout != null)
-                    {
-                        loadout = randomStandardLoadout.loadout;
-                        fuelLevel = randomStandardLoadout.FuelRatio;
-                    }
-
-                    int randomLiveryForFaction = item2.aircraftParameters.GetRandomLiveryForFaction(hq.faction);
-                    
-                    if (item.TrySpawnAircraft(null, item2, new LiveryKey(randomLiveryForFaction), loadout, fuelLevel).Allowed)
-                    {
-                        return false; 
-                    }
-                }
-            }
+            Plugin.Logger.LogError("Failed to find match in FactionHQ.DeployAIAircraft");
+            return matcher.InstructionEnumeration();
         }
         
-        return false;
-    }  
+        matcher.Advance(1);
+        CodeInstruction storeInstruction = matcher.Instruction;
+
+        
+        matcher.Advance(1);
+        matcher.Insert(
+            new CodeInstruction(OpCodes.Ldloc_S, storeInstruction.operand),
+            new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(UnitDefinitionExtensions), nameof(UnitDefinitionExtensions.IsShipDefinition))),
+            new CodeInstruction(OpCodes.Brtrue, continueLabel)
+        );
+
+        return matcher.InstructionEnumeration();
+    }
 }

@@ -56,39 +56,6 @@ public class AircraftPatches
 		return false;
 	}
 
-	/*[HarmonyPatch(nameof(Aircraft.CanRearm))]
-	[HarmonyPrefix]
-	static bool CanRearm_Prefix(Aircraft __instance, bool aircraftRearm, bool vehicleRearm, bool shipRearm, ref bool __result)
-	{
-		if (!__instance.GetComponent<ShipPartBridge>()) return true;
-
-		__result = true;
-		if (!shipRearm) __result = false;
-		
-		return false;
-	}*/
-
-	/*[HarmonyPatch(nameof(Aircraft.Rearm))]
-	[HarmonyPrefix]
-	static bool Rearm_Prefix(Aircraft __instance, RearmEventArgs args)
-	{
-		if (!__instance.GetComponent<ShipPartBridge>()) return true;
-		var ac = __instance;
-
-		if (!(ac.Player == null))
-		{
-			float num = ac.sortieScore * MissionManager.CurrentMission.missionSettings.successfulSortieBonus;
-			if (num > 0f && ac.Player != null)
-			{
-				ac.SuccessfulSortie(num);
-			}
-			ac.NetworkHQ.AddScore(num);
-			ac.RpcRearm(args);
-		}
-		
-		return false;
-	}*/
-
 	[HarmonyPatch(nameof(Aircraft.ReturnToInventory))]
 	[HarmonyPrefix]
 	static bool ReturnToInventory_Prefix(Aircraft __instance, ref bool __state)

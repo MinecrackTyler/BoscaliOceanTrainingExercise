@@ -137,6 +137,7 @@ public class PlayerShipPropulsion : MonoBehaviour, IEngine
         return;
     }
 
+    #pragma warning disable CS0067 //event is never used
     public event Action OnEngineDisable;
     public event Action OnEngineDamage;
 }

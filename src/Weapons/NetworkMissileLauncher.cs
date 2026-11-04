@@ -218,7 +218,7 @@ public class NetworkMissileLauncher : Weapon
                 BeginReload().Forget();
             }
         }
-        catch (OperationCanceledException cex)
+        catch (OperationCanceledException)
         {
             
         }

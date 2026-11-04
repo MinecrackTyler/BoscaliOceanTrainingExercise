@@ -43,7 +43,6 @@ public class DeploymentManager : NetworkBehaviour
     public IReadOnlyDictionary<DeployableUnit, int> UnitManifest => unitManifest;
 
     private float lastDeployTime;
-    private List<DeployableUnit> storedUnits;
 
     private const string INPUT_FOB    = $"{Mod_Input.ModShortName}:Deploy FOB";
     private const string INPUT_NEXT   = $"{Mod_Input.ModShortName}:Next Unit";

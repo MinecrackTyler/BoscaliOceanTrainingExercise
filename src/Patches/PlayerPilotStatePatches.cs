@@ -11,7 +11,7 @@ public static class PilotPlayerStatePatches
 	private static void PlayerControls_Postfix(PilotPlayerState __instance)
 	{
 		if (!GameManager.flightControlsEnabled || __instance.pilotStrength < 0.2f) return;
-		if (!ModAssets.i.ShipDefinitions.Contains(__instance.pilot.aircraft.definition)) return;
+		if (!__instance.pilot.aircraft.definition.IsShipDefinition()) return;
 		
 		var pilot = __instance.pilot;
 		var aircraft = pilot.aircraft;

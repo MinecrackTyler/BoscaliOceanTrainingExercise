@@ -9,7 +9,7 @@ public static class RadialMenuActionPatches
 	[HarmonyPostfix]
 	private static void TriggerAction_Postfix(RadialMenuAction __instance, Aircraft aircraft)
 	{
-		if (!ModAssets.i.ShipDefinitions.Contains(aircraft.definition)) return;
+		if (!aircraft.definition.IsShipDefinition()) return;
 		switch (__instance.actionType)
 		{
 			case RadialMenuAction.ActionType.Gear:

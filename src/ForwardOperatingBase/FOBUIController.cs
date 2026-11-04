@@ -19,11 +19,8 @@ public class FOBUIController : MonoBehaviour
 	[SerializeField] private Button finalizeButton;
 	[SerializeField] private Button cancelButton;
 	
-	[SerializeField] private float panSpeed = 40f;
-	[SerializeField] private float zoomSpeed = 100f;
 	[SerializeField] private Vector2 zoomLimit = new Vector2(50f, 250f);
 	[SerializeField] private Vector2 vertLimit = new Vector2(0f, 5f);
-	[SerializeField] private GameObject bootScreenPrefab;
 	[SerializeField] private Color selectedColor;
 	[SerializeField] private Color placedColor;
 	[SerializeField] private Color invalidColor;

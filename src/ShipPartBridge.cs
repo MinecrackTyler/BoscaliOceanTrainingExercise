@@ -22,8 +22,6 @@ public class ShipPartBridge : MonoBehaviour
 	[SerializeField] private AudioSource[] waterSounds;
 	[SerializeField] private AudioSource[] hullSounds;
 	
-	private float gearTimer = 0f;
-	
 	public DeploymentManager deploymentManager;
 	public FOBManager fobManager;
 	public ResupplyController resupplyController;

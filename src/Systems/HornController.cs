@@ -8,7 +8,6 @@ public class HornController : NetworkBehaviour
 	[SerializeField] private Aircraft aircraft;
 	[SerializeField] private AudioSource source;
 	[SerializeField] private float cooldown;
-	[SerializeField] private float volume;
 
 	private float lastHonkTime;
 	
